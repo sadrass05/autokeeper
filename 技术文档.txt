@@ -1,0 +1,86 @@
+问题一：observeAsState 无法解析
+原因： ViewModel 中使用的是 StateFlow 而非 LiveData，但 UI 层错误地调用了 LiveData 专用的 observeAsState。
+解决：
+kotlin// ❌ 错误
+import androidx.compose.runtime.livedata.observeAsState
+val data by viewModel.data.observeAsState(emptyList())
+
+// ✅ 正确
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+val data by viewModel.data.collectAsStateWithLifecycle()
+
+问题二：runtime-livedata 依赖版本变量未定义
+原因： build.gradle 中使用了 $compose_version 变量但从未定义，导致依赖实际未引入。
+解决： 使用 BOM 管理版本，无需手动指定：
+gradleimplementation "androidx.compose.runtime:runtime-livedata" // 去掉版本变量
+
+问题三：contentPadding = 16.dp 类型错误
+原因： LazyColumn 的 contentPadding 参数类型是 PaddingValues，不能直接传 Dp。
+解决：
+kotlin// ❌ 错误
+contentPadding = 16.dp
+
+// ✅ 正确
+contentPadding = PaddingValues(16.dp)
+
+问题四：Hilt 与 Kotlin 2.1.x 不兼容
+原因： 项目使用了 Kotlin 2.1.10，但旧版 Hilt 内置的 kotlinx-metadata-jvm 最高只支持 Kotlin metadata 2.0.0。
+错误信息：
+Provided Metadata instance has version 2.1.0, 
+while maximum supported version is 2.0.0
+解决： 升级 Hilt 到 2.56+：
+properties# gradle.properties
+hilt_version=2.56
+
+问题五：ViewModel 无法实例化导致闪退
+原因： MainViewModel 构造函数需要 Repository 参数，但没有接入 Hilt 注入体系，viewModel() 默认工厂不知道如何创建它。
+错误信息：
+Cannot create an instance of class MainViewModel
+解决： 四步完整接入 Hilt：
+kotlin// 1. ViewModel 加注解，删掉手写的 Factory
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val expenseRepository: ExpenseRepository,
+    ...
+) : ViewModel()
+
+// 2. Activity 加注解
+@AndroidEntryPoint
+class MainActivity : ComponentActivity()
+
+// 3. 新建 Application 类
+@HiltAndroidApp
+class App : Application()
+
+// 4. UI 层改用 hiltViewModel()
+import androidx.hilt.navigation.compose.hiltViewModel
+fun HomeScreen(viewModel: MainViewModel = hiltViewModel())
+xml<!-- AndroidManifest.xml -->
+<application android:name=".App" ...>
+gradle// build.gradle 添加依赖
+implementation "androidx.hilt:hilt-navigation-compose:1.2.0"
+
+问题六：多个 @HiltAndroidApp 冲突
+原因： 项目已有 App.kt 带有 @HiltAndroidApp，又新建了 MyApplication.kt，两个冲突。
+错误信息：
+Cannot process multiple app roots in the same compilation unit
+解决： 删掉新建的 MyApplication.kt，只保留已有的 App.kt，确认 AndroidManifest.xml 中 android:name=".App"。
+
+问题七：Composable 函数不能直接存入列表
+原因： 将 HomeScreen() 直接调用后存入列表，返回值是 Unit，页面无法渲染，导致内容一片空白。
+解决： 用 lambda 包裹 Composable 函数：
+kotlin// ❌ 错误：直接调用，返回 Unit
+val screens = listOf(
+    "首页" to HomeScreen()
+)
+
+// ✅ 正确：lambda 包裹，延迟调用
+val screens = listOf<Pair<String, @Composable () -> Unit>>(
+    "首页" to { HomeScreen() }
+)
+
+// 使用时加括号调用
+screens[selectedScreen].second()
+
+经验总结
+场景要点StateFlow vs LiveDataStateFlow 用 collectAsStateWithLifecycle，LiveData 才用 observeAsStateGradle 版本变量使用前确认变量已定义，优先用 BOM 统一管理版本Hilt + 新版 KotlinKotlin 2.1.x 需要 Hilt 2.56+Hilt 接入ViewModel、Activity、Application 三处缺一不可Composable 存储永远用 lambda 包裹，不能直接调用后存储

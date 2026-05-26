@@ -1,0 +1,22 @@
+# Checklist
+
+- [x] build.gradle 中 Apache POI 依赖已移除
+- [x] `CsvExporter.kt` 创建于 `ui/export/` 目录
+- [x] `generateCsv` 包含 BOM 头 `\uFEFF`
+- [x] `generateCsv` 正确处理双引号转义 `""`
+- [x] `saveCsvToDownloads` 使用 MediaStore API
+- [x] `saveCsvToDownloads` 设置 IS_PENDING 标志
+- [x] `exportExpenses` 表头: 日期时间,商户名称,金额,平台,支付渠道,分类,是否理财支出
+- [x] `exportExpenses` 数据按时间从新到旧排列
+- [x] `exportPositions` 表头: 产品名称,平台,买入金额,当前市值,收益,收益率
+- [x] `createShareIntent` 提供 ACTION_SEND 分享
+- [x] MainViewModel 添加 `getAllExpensesForExport()` 和 `getAllPositionsForExport()`
+- [x] 导出方法内部使用 `repository.getAllXxx().first()` 获取全量数据
+- [x] SettingsScreen 移除 `ExcelExporter` 导入
+- [x] SettingsScreen 新增"导出支出记录(CSV)"按钮
+- [x] SettingsScreen 新增"导出理财持仓(CSV)"按钮
+- [x] 导出中显示加载状态，按钮禁用
+- [x] 导出成功绿色提示 + 分享按钮
+- [x] 导出失败红色错误信息
+- [x] ExcelExporter.kt 已删除或不存在
+- [x] 无编译错误，无 POI 相关未使用导入

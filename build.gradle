@@ -1,0 +1,35 @@
+buildscript {
+    // 降级到稳定版本组合
+    ext.kotlin_version = '2.1.10'
+    ext.compose_version = "1.6.5"
+    ext.room_version = "2.6.1"
+    ext.hilt_version = '2.56'
+    ext.retrofit_version = "2.9.0"
+    ext.mlkit_version = "16.0.0"
+    ext.mpchart_version = "v3.1.0"
+
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.9.1'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "com.google.dagger:hilt-android-gradle-plugin:$hilt_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:2.1.10-1.0.29"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

@@ -1,0 +1,20 @@
+- [x] `data/entity/FinanceExpense.kt` 存在，包含 id/amount/description/fromProduct/recordedAt 字段
+- [x] `data/dao/FinanceExpenseDao.kt` 存在，提供 insert/delete/getAllExpenses/getTotalExpenses
+- [x] `data/repository/FinanceExpenseRepository.kt` 存在，封装 DAO 方法
+- [x] `data/AppDatabase.kt` 版本号 = 4，entities 包含 FinanceExpense::class
+- [x] `data/AppDatabase.kt` MIGRATION_3_4 正确创建 finance_expenses 表
+- [x] `di/DatabaseModule.kt` 提供 FinanceExpenseDao 和 FinanceExpenseRepository
+- [x] `MainViewModel` 暴露 `financeExpenses: StateFlow<List<FinanceExpense>>`
+- [x] `MainViewModel` 提供 `addFinanceExpense()` / `deleteFinanceExpense()` 方法
+- [x] `MainViewModel.calculateFinanceExpense()` 从 FinanceExpenseRepository 汇总
+- [x] FinanceScreen 概览卡片"理财收益支出"和"剩余净收益"使用新数据源
+- [x] FinanceScreen 显示"收益支出记录"区块（标题+最近5条+查看全部+删除）
+- [x] FinanceScreen "+ 记录支出"弹出 BottomSheet 表单（金额/描述/来源产品下拉/日期/确认）
+- [x] FinanceScreen 显示"收益排行"区块（标题+排序切换+RankBadge+列表）
+- [x] RankBadge 第1名金色/第2名银色/第3名铜色/其余灰色
+- [x] 排行榜排序切换有 animateItemPlacement 动画
+- [x] HomeScreen 底部不再显示"添加理财"按钮
+- [x] HomeScreen 底部不再显示"导出报表"按钮
+- [x] HomeScreen 函数签名不再包含 onNavigateToFinance/onExportReport 参数
+- [x] MainActivity HomeScreen 调用处移除不再需要的参数
+- [x] HomeScreen LazyColumn contentPadding bottom 适当调整

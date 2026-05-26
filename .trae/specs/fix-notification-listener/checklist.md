@@ -1,0 +1,5 @@
+- [x] AndroidManifest.xml 中 Service 的 android:name 为 ".notification.NotificationListener"
+- [x] PaymentParser.parsePayment 函数签名为 `fun parsePayment(packageName: String, title: String, text: String, notificationId: String): ExpenseRecord?`
+- [x] NotificationListener.kt 调用 parsePayment 时参数顺序为 `(packageName, title, text, notificationId)`
+- [ ] 项目编译通过（无编译错误）
+- [ ] 重新安装到手机后，收到支付通知时 App 能自动记录支出

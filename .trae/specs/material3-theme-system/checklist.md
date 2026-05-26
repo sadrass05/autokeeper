@@ -1,0 +1,23 @@
+# Checklist
+
+- [x] Color.kt 只保留主题直接引用的 11 个颜色常量
+- [x] primary = Color(0xFFB87333) 琥珀金铜
+- [x] 浅色 background = Color(0xFFF5F5F0) 暖灰白
+- [x] 深色 background = Color(0xFF121212) 标准深色
+- [x] 浅色 surface = Color(0xFFFFFFFF)
+- [x] 深色 surface = Color(0xFF1E1E1E)
+- [x] 浅色 surfaceVariant = Color(0xFFF0EDE8)
+- [x] 深色 surfaceVariant = Color(0xFF2C2C2C)
+- [x] error = Color(0xFFE53935)
+- [x] tertiary = Color(0xFF43A047) 收益绿
+- [x] Type.kt 只显式设置 4 核心层级
+- [x] headlineLarge = Bold, 24sp
+- [x] titleMedium = SemiBold, 16sp
+- [x] bodyMedium = Normal, 14sp, lineHeight 22sp
+- [x] labelSmall = Normal, 11sp, letterSpacing 0.5sp
+- [x] Shape.kt 新建完成，4 级圆角（8/12/16/24dp）
+- [x] Theme.kt DarkColorScheme 使用新颜色常量
+- [x] Theme.kt LightColorScheme 使用新颜色常量
+- [x] AutoBookkeeperTheme 添加 shapes = AppShapes
+- [x] 全项目无编译错误对旧颜色常量的引用
+- [x] 构建通过无编译错误

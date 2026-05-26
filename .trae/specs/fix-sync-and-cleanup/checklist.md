@@ -1,0 +1,6 @@
+- [x] SettingsScreen.kt 中不再有重复声明的 `showSyncSheet` 变量
+- [x] SettingsScreen.kt 中不再有重复声明的 `showCleanupDialog` 变量
+- [x] SettingsScreen.kt 中不再有重复声明的 `serverIp`、`serverPortText` 等同步相关状态变量
+- [x] 点击"数据同步"入口行能成功弹出 ModalBottomSheet（代码逻辑已修复，外层唯一变量 `showSyncSheet` 被正确修改）
+- [x] 点击"清理错误导入数据"入口行能成功弹出 AlertDialog（代码逻辑已修复，外层唯一变量 `showCleanupDialog` 被正确修改）
+- [x] 导出支出/理财功能（局部状态变量）不受影响（`isExportingExpenses`、`exportExpensesMessage` 等局部变量保留在 Column lambda 内）

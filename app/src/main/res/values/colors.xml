@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 核心品牌色 -->
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_100">#FFD1C4E9</color>
+    <color name="purple_900">#FF1A237E</color>
+    <color name="purple_200">#FFBB86FC</color>
+
+    <!-- 辅助色 -->
+    <color name="teal_500">#FF03DAC5</color>
+    <color name="teal_100">#FFB2DFDB</color>
+    <color name="teal_900">#FF004D40</color>
+
+    <!-- 第三色 -->
+    <color name="orange_500">#FFFF9800</color>
+    <color name="orange_100">#FFFFE0B2</color>
+    <color name="orange_900">#FFE65100</color>
+
+    <!-- 错误色 -->
+    <color name="red_500">#FFB00020</color>
+    <color name="red_100">#FFFFCDD2</color>
+    <color name="red_900">#FF600000</color>
+
+    <!-- 基础色 -->
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+    <color name="gray_900">#FF212121</color>
+    <color name="gray_800">#FF424242</color>
+    <color name="gray_600">#FF757575</color>
+    <color name="gray_400">#FFBDBDBD</color>
+    <color name="gray_300">#FFE0E0E0</color>
+    <color name="gray_100">#FFF5F5F5</color>
+</resources>

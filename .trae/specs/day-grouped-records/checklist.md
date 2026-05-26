@@ -1,0 +1,23 @@
+# Checklist
+
+- [x] CategoryCircleIcon.kt 创建于 ui/components/ 目录下
+- [x] getCategoryColor 包含至少 8 种分类颜色映射 + 默认灰色
+- [x] CategoryCircleIcon 支持自定义 size 参数，默认 40.dp
+- [x] CategoryCircleIcon 中央显示分类首字符（白色 Bold）
+- [x] DayGroupHeader.kt 创建于 ui/components/ 目录下
+- [x] formatGroupDate 正确区分今天/昨天/星期X
+- [x] DayGroupHeader 左侧显示日期 + 右侧显示收支摘要
+- [x] 收入为 0 时不显示"入"摘要
+- [x] RecordsScreen LazyColumn 使用 stickyHeader + items 分组结构
+- [x] sortedDates 按日期降序排列（最新在前）
+- [x] 组内记录按 recordedAt 降序排列（新到旧）
+- [x] stickyHeader key 为 "header_$dateKey"，记录 key 为 expense.id
+- [x] ExpenseRecordItem 显示分类图标圆（40dp）+ 信息列 + 金额
+- [x] 支出金额显示为 "-¥XXX.XX" 红色，收入显示为 "+¥XXX.XX" 绿色
+- [x] 有商户名时子行显示 "HH:mm  |  商户名"
+- [x] 无商户名时子行只显示 "HH:mm"
+- [x] 每条记录保留 SwipeToDismissBox 左滑删除
+- [x] 组内记录间有 0.5dp 缩进分隔线（缩进 68dp）
+- [x] FilterBar 保持不变且筛选联动正常
+- [x] AddExpenseSheet 和 EditRecordSheet 保持不变
+- [x] 无编译错误，无未使用导入

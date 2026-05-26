@@ -1,0 +1,29 @@
+# Python virtual environment
+.venv/
+*.pyc
+__pycache__/
+
+# Android build outputs
+*.apk
+*.aab
+build/
+.gradle/
+out/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+local.properties
+captures/
+
+# Gradle
+.DS_Store
+
+# Logs
+*.log
+
+# Server uploads
+uploads/
+
+# Backup files
+*.bak

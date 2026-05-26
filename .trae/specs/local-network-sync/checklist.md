@@ -1,0 +1,27 @@
+# Checklist
+
+- [x] `server/sync_server.py` 提供 GET /ping 返回 status ok
+- [x] `server/sync_server.py` POST /sync/expenses 支持批量 REPLACE INTO 写入
+- [x] `server/sync_server.py` POST /sync/positions 支持批量 REPLACE INTO 写入
+- [x] `server/sync_server.py` 启动时自动建表（expenses 和 finance_positions）
+- [x] `server/requirements.txt` 包含所有 Python 依赖
+- [x] `data/SyncPrefs.kt` 使用 SharedPreferences 存储 serverIp、serverPort、lastSyncTime
+- [x] `SyncPrefs.kt` 提供 get/set 方法，有合理的默认值
+- [x] `network/ApiService.kt` 新增 `/ping` 和 `SyncResponse` 类型
+- [x] `network/SyncService.kt` 创建临时 Retrofit 实例进行同步
+- [x] `SyncService.ping()` 正常返回 true，网络不可达返回 false
+- [x] `SyncService.fullSync()` 发送全部记录，返回 SyncResult
+- [x] `SyncService.incrementalSync()` 仅发送 lastSyncTime 之后的记录
+- [x] SyncService 超时设置：connect 5s, read 30s, write 30s
+- [x] SyncService 异常转换为中文友好提示
+- [x] `NetworkModule.provideOkHttpClient()` 设置超时参数
+- [x] SettingsScreen 显示 IP 输入框和端口输入框
+- [x] SettingsScreen IP/端口自动保存到 SyncPrefs
+- [x] SettingsScreen "测试连接"按钮调用 SyncService.ping()
+- [x] SettingsScreen "全量同步"按钮调用 SyncService.fullSync()
+- [x] SettingsScreen "增量同步"按钮调用 SyncService.incrementalSync()
+- [x] SettingsScreen 同步中显示 LinearProgressIndicator
+- [x] SettingsScreen 同步完成后显示结果文字
+- [x] SettingsScreen 显示"上次同步时间"
+- [x] 同步过程中按钮禁用防止重复点击
+- [x] MainViewModel syncToMySQL 已移除或不再使用 JDBC 直连

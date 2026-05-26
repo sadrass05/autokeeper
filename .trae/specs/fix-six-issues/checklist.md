@@ -1,0 +1,22 @@
+# Checklist
+
+- [x] MiniLineChart X 轴标签在深色模式下可见（浅色文本）
+- [x] MiniLineChart X 轴标签在浅色模式下可见（深色文本）
+- [x] 主题切换时趋势图标签颜色实时更新
+- [x] RecordsScreen 有"手动添加"按钮入口
+- [x] 手动添加弹出完整表单（金额、分类、平台、支付渠道、理财标记）
+- [x] 手动添加的记录正确保存到 Room 并刷新列表
+- [x] 记录列表主标题显示分类名而非商户名
+- [x] 记录列表副标题显示"平台 · 支付渠道"
+- [x] 理财持仓导入按钮在 FinanceScreen 可见
+- [x] 表格格式导入正确解析产品名称、平台、金额、市值、收益、收益率
+- [x] 自由文本格式导入作为回退方案正常工作
+- [x] 导入完成后 Toast 显示成功/失败数量
+- [x] Flask 后端 app.py 可启动并能连接 MySQL
+- [x] 4 个 API 端点正常响应
+- [x] SettingsScreen"数据库同步"按钮触发同步并 Toast 提示结果
+- [x] SettingsScreen"导出Excel"按钮生成文件并 Toast 提示路径
+- [x] ExcelExporter 所有 I/O 操作在 Dispatchers.IO 执行
+- [x] 大数据量导出不导致 ANR 或闪退
+- [x] 理财支出 Switch 自动分类功能正常
+- [x] 所有页面主题切换即时响应

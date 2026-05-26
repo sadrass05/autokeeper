@@ -1,0 +1,24 @@
+# Checklist
+
+- [x] build.gradle 中无 POI 依赖残留
+- [x] ExpenseDao 有 `getAllExpensesList()` 方法
+- [x] FinanceDao 有 `getAllPositionsList()` 方法
+- [x] ExpenseRepository 有 `getAllExpensesOnce()` 方法
+- [x] FinanceRepository 有 `getAllPositionsOnce()` 方法
+- [x] CsvExporter 为 @Singleton class（非 object）
+- [x] CsvExporter 通过构造函数注入 Repository
+- [x] `buildCsv` 包含 BOM 头 `\uFEFF`
+- [x] `buildCsv` 正确处理双引号转义
+- [x] `saveToDownloads` 使用 MediaStore + IS_PENDING
+- [x] `exportExpenses` 表头: 日期时间,商户名称,金额,平台,支付渠道,分类,是否理财支出
+- [x] `exportPositions` 表头: 产品名称,平台,买入金额,当前市值,收益,收益率(%)
+- [x] `ExportResult` sealed class 定义在文件中
+- [x] ImportManager.kt 无 org.apache.poi 引用
+- [x] ImportManager 支持 CSV 导入（含 parseCsvLine 引号转义处理）
+- [x] ImportManager 支持 TXT 导入（保留原逻辑）
+- [x] ImportManager `importFile` 根据扩展名分发
+- [x] FinanceScreen.kt 无 org.apache.poi 引用
+- [x] FinanceScreen 删除 getCellString 和 importExcelToFinance 函数
+- [x] SettingsScreen 适配新 CsvExporter（EntryPoint 注入 + ExportResult）
+- [x] ExcelExporter.kt 已删除
+- [x] 无编译错误，无未使用导入

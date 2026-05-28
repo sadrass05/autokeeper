@@ -27,3 +27,27 @@ uploads/
 
 # Backup files
 *.bak
+
+# Signing keys (NEVER commit!)
+*.jks
+*.keystore
+
+# IDE / Editor
+.vscode/
+*.swp
+*.swo
+
+# Trae documents (local only)
+.trae/
+
+# Build config backup
+*.backup
+
+# Custom icon sources (not needed in repo)
+custom_icons/
+
+# App preview files
+app_icon_preview.html
+
+# Python lock files
+uv.lock

@@ -3,9 +3,6 @@ package com.example.autobookkeeper.network
 import android.content.Context
 import com.example.autobookkeeper.data.SyncPrefs
 import com.example.autobookkeeper.data.entity.ExpenseRecord
-import com.example.autobookkeeper.data.entity.FinancePosition
-import com.example.autobookkeeper.network.SyncExpensesRequest
-import com.example.autobookkeeper.network.SyncFinanceRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -21,7 +18,6 @@ import javax.inject.Singleton
 
 data class SyncResult(
     val expenseCount: Int,
-    val positionCount: Int,
     val success: Boolean,
     val message: String
 )
@@ -126,7 +122,7 @@ class SyncService @Inject constructor(
         ip: String,
         port: Int,
         expenses: List<ExpenseRecord>,
-        positions: List<FinancePosition>,
+        positions: List<Any> = emptyList(),
         onProgress: (String) -> Unit
     ): SyncResult {
         val api = createApiService("http://$ip:$port/")
@@ -135,24 +131,17 @@ class SyncService @Inject constructor(
             onProgress("正在同步支出记录...")
             val expenseResponse = api.syncExpenses(SyncExpensesRequest(expenses))
             if (!expenseResponse.success) {
-                return SyncResult(0, 0, false, "支出记录同步失败: ${expenseResponse.message}")
-            }
-
-            onProgress("正在同步理财记录...")
-            val positionResponse = api.syncFinance(SyncFinanceRequest(positions))
-            if (!positionResponse.success) {
-                return SyncResult(extractCount(expenseResponse.message), 0, false, "理财记录同步失败: ${positionResponse.message}")
+                return SyncResult(0, false, "支出记录同步失败: ${expenseResponse.message}")
             }
 
             syncPrefs.lastSyncTime = System.currentTimeMillis()
             return SyncResult(
                 expenseCount = extractCount(expenseResponse.message),
-                positionCount = extractCount(positionResponse.message),
                 success = true,
-                message = "成功同步 ${extractCount(expenseResponse.message)} 条支出记录，${extractCount(positionResponse.message)} 条理财记录"
+                message = "成功同步 ${extractCount(expenseResponse.message)} 条支出记录"
             )
         } catch (e: Exception) {
-            return SyncResult(0, 0, false, formatException(e))
+            return SyncResult(0, false, formatException(e))
         }
     }
 
@@ -160,7 +149,7 @@ class SyncService @Inject constructor(
         ip: String,
         port: Int,
         expenses: List<ExpenseRecord>,
-        positions: List<FinancePosition>,
+        positions: List<Any> = emptyList(),
         onProgress: (String) -> Unit
     ): SyncResult {
         val lastSync = syncPrefs.lastSyncTime
@@ -171,14 +160,8 @@ class SyncService @Inject constructor(
             expenses
         }
 
-        val newPositions = if (lastSync > 0L) {
-            positions.filter { it.updatedAt > lastSync || (it.id > 0 && it.updatedAt == lastSync) }
-        } else {
-            positions
-        }
-
-        if (newExpenses.isEmpty() && newPositions.isEmpty()) {
-            return SyncResult(0, 0, true, "没有新的数据需要同步")
+        if (newExpenses.isEmpty()) {
+            return SyncResult(0, true, "没有新的数据需要同步")
         }
 
         val api = createApiService("http://$ip:$port/")
@@ -187,24 +170,17 @@ class SyncService @Inject constructor(
             onProgress("正在同步支出记录...")
             val expenseResponse = api.syncExpenses(SyncExpensesRequest(newExpenses))
             if (!expenseResponse.success) {
-                return SyncResult(0, 0, false, "支出记录同步失败: ${expenseResponse.message}")
-            }
-
-            onProgress("正在同步理财记录...")
-            val positionResponse = api.syncFinance(SyncFinanceRequest(newPositions))
-            if (!positionResponse.success) {
-                return SyncResult(extractCount(expenseResponse.message), 0, false, "理财记录同步失败: ${positionResponse.message}")
+                return SyncResult(0, false, "支出记录同步失败: ${expenseResponse.message}")
             }
 
             syncPrefs.lastSyncTime = System.currentTimeMillis()
             return SyncResult(
                 expenseCount = extractCount(expenseResponse.message),
-                positionCount = extractCount(positionResponse.message),
                 success = true,
-                message = "成功同步 ${extractCount(expenseResponse.message)} 条支出记录，${extractCount(positionResponse.message)} 条理财记录"
+                message = "成功同步 ${extractCount(expenseResponse.message)} 条支出记录"
             )
         } catch (e: Exception) {
-            return SyncResult(0, 0, false, formatException(e))
+            return SyncResult(0, false, formatException(e))
         }
     }
 

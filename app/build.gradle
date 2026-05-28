@@ -2,7 +2,7 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose' version '2.1.10'
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-    id 'com.google.devtools.ksp'       // 添加 KSP 插件
+    id 'com.google.devtools.ksp'
     id 'dagger.hilt.android.plugin'
 }
 
@@ -14,12 +14,45 @@ android {
         applicationId "com.example.autobookkeeper"
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary true
+        }
+
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("autobookkeeper.jks")
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "autobookkeeper2026"
+            keyAlias System.getenv("KEY_ALIAS") ?: "autobookkeeper"
+            keyPassword System.getenv("KEY_PASSWORD") ?: "autobookkeeper2026"
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
+    flavorDimensions "version"
+    productFlavors {
+        standard {
+            dimension "version"
+            applicationId "com.example.autobookkeeper"
+            versionName "1.0.0"
+            resValue "string", "app_name", "自动记账助手"
+            buildConfigField "boolean", "IS_PRO", "false"
+        }
+        pro {
+            dimension "version"
+            applicationId "com.example.autobookkeeper.pro"
+            versionName "1.0.0-pro"
+            resValue "string", "app_name", "自动记账助手 Pro"
+            buildConfigField "boolean", "IS_PRO", "true"
         }
     }
 
@@ -29,8 +62,13 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.debug
         }
     }
 
@@ -45,6 +83,7 @@ android {
 
     buildFeatures {
         compose true
+        buildConfig true
     }
 
     packaging {
@@ -61,8 +100,8 @@ android {
 
 dependencies {
     implementation 'androidx.compose.foundation:foundation:1.11.2'
+    implementation "androidx.lifecycle:lifecycle-process:2.8.4"
 
-    // Core (更新到兼容版本)
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.4'
     implementation 'androidx.activity:activity-compose:1.9.1'
@@ -76,40 +115,33 @@ dependencies {
     implementation "androidx.hilt:hilt-navigation-compose:1.2.0"
     implementation "androidx.compose.material:material-icons-extended"
 
-    // DataStore
     implementation "androidx.datastore:datastore-preferences:1.1.1"
 
-    // Room (KSP 替代 kapt)
     implementation "androidx.room:room-runtime:$room_version"
-    ksp "androidx.room:room-compiler:$room_version"  // 关键修改
+    ksp "androidx.room:room-compiler:$room_version"
     implementation "androidx.room:room-ktx:$room_version"
 
-    // Hilt (KSP 替代 kapt)
     implementation "com.google.dagger:hilt-android:$hilt_version"
-    ksp "com.google.dagger:hilt-compiler:$hilt_version"  // 关键修改
+    ksp "com.google.dagger:hilt-compiler:$hilt_version"
 
-    // Retrofit
     implementation "com.squareup.retrofit2:retrofit:$retrofit_version"
     implementation "com.squareup.retrofit2:converter-gson:$retrofit_version"
     implementation "com.squareup.okhttp3:logging-interceptor:4.12.0"
 
-    // ML Kit OCR
     implementation "com.google.mlkit:text-recognition:$mlkit_version"
 
-    // MPAndroidChart
     implementation "com.github.PhilJay:MPAndroidChart:$mpchart_version"
 
-    // ViewModel & LiveData
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.8.4'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4'
     implementation "androidx.lifecycle:lifecycle-runtime-compose:2.8.4"
 
-    // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2"
 
-    // Testing
+    implementation "androidx.work:work-runtime-ktx:2.9.0"
+
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
@@ -118,7 +150,6 @@ dependencies {
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
 
-    // Hilt Testing
     androidTestImplementation "com.google.dagger:hilt-android-testing:$hilt_version"
     kspAndroidTest "com.google.dagger:hilt-android-compiler:$hilt_version"
 }

@@ -3,6 +3,8 @@ package com.example.autobookkeeper.di
 import android.content.Context
 import androidx.room.Room
 import com.example.autobookkeeper.data.AppDatabase
+import com.example.autobookkeeper.data.dao.CategoryDao
+import com.example.autobookkeeper.data.dao.ExpenseDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,14 +31,8 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideExpenseDao(database: AppDatabase) = database.expenseDao()
+    fun provideExpenseDao(database: AppDatabase): ExpenseDao = database.expenseDao()
 
     @Provides
-    fun provideFinanceDao(database: AppDatabase) = database.financeDao()
-
-    @Provides
-    fun provideCategoryDao(database: AppDatabase) = database.categoryDao()
-
-    @Provides
-    fun provideFinanceExpenseDao(database: AppDatabase) = database.financeExpenseDao()
+    fun provideCategoryDao(database: AppDatabase): CategoryDao = database.categoryDao()
 }

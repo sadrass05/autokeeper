@@ -1,8 +1,8 @@
 package com.example.autobookkeeper.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.autobookkeeper.BuildConfig
 import com.example.autobookkeeper.data.repository.CategoryRepository
 import com.example.autobookkeeper.data.repository.ExpenseRepository
 import com.example.autobookkeeper.data.repository.FinanceExpenseRepository
@@ -112,7 +112,12 @@ class MainViewModel @Inject constructor(
         loadTrendData()
         loadMonthlyStats()
         loadTodayCategoryData()
-        loadFinanceExpenses()
+
+        // 仅 Pro 版加载理财数据
+        if (BuildConfig.IS_PRO) {
+            loadFinanceExpenses()
+        }
+
         cleanExpiredTrash()
         loadDeletedExpenses()
     }

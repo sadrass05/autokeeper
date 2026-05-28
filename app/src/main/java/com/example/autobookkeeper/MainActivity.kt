@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.Alignment
 import com.example.autobookkeeper.ui.components.GlassNavigationBar
 import com.example.autobookkeeper.ui.components.NavItem
 import androidx.compose.material3.Scaffold
@@ -19,12 +18,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
-import com.example.autobookkeeper.ui.screen.FinanceScreen
+import com.example.autobookkeeper.BuildConfig
 import com.example.autobookkeeper.ui.screen.HomeScreen
 import com.example.autobookkeeper.ui.screen.RecordsScreen
+import com.example.autobookkeeper.ui.screen.FinanceScreen
 import com.example.autobookkeeper.ui.screen.SettingsScreen
 import com.example.autobookkeeper.ui.theme.AutoBookkeeperTheme
 import com.example.autobookkeeper.ui.theme.ThemePrefs
@@ -54,23 +53,20 @@ class MainActivity : ComponentActivity() {
             AutoBookkeeperTheme(darkTheme = isDarkTheme) {
                 var selectedScreen by remember { mutableStateOf(0) }
 
-                val screens : List<Pair<String,@Composable () -> Unit>> = listOf(
-                    "首页" to {
-                        HomeScreen(
-                            onNavigateToRecords = { selectedScreen = 1 }
-                        )
-                    },
-                    "记录" to { RecordsScreen() },
-                    "理财" to { FinanceScreen() },
-                    "设置" to { SettingsScreen() }
-                )
-
-                val navItems = listOf(
-                    NavItem("首页", R.drawable.ic_home, R.drawable.ic_home_filled),
-                    NavItem("记录", R.drawable.ic_records, R.drawable.ic_records_filled),
-                    NavItem("理财", R.drawable.ic_finance, R.drawable.ic_finance_filled),
-                    NavItem("设置", R.drawable.ic_settings, R.drawable.ic_settings_filled)
-                )
+                val navItems = if (BuildConfig.IS_PRO) {
+                    listOf(
+                        NavItem("首页", R.drawable.ic_home, R.drawable.ic_home_filled),
+                        NavItem("记录", R.drawable.ic_records, R.drawable.ic_records_filled),
+                        NavItem("理财", R.drawable.ic_finance, R.drawable.ic_finance_filled),
+                        NavItem("设置", R.drawable.ic_settings, R.drawable.ic_settings_filled)
+                    )
+                } else {
+                    listOf(
+                        NavItem("首页", R.drawable.ic_home, R.drawable.ic_home_filled),
+                        NavItem("记录", R.drawable.ic_records, R.drawable.ic_records_filled),
+                        NavItem("设置", R.drawable.ic_settings, R.drawable.ic_settings_filled)
+                    )
+                }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -85,7 +81,20 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             Crossfade(targetState = selectedScreen) { screen ->
-                                screens[screen].second()
+                                if (BuildConfig.IS_PRO) {
+                                    when (screen) {
+                                        0 -> HomeScreen(onNavigateToRecords = { selectedScreen = 1 })
+                                        1 -> RecordsScreen()
+                                        2 -> FinanceScreen()
+                                        3 -> SettingsScreen()
+                                    }
+                                } else {
+                                    when (screen) {
+                                        0 -> HomeScreen(onNavigateToRecords = { selectedScreen = 1 })
+                                        1 -> RecordsScreen()
+                                        2 -> SettingsScreen()
+                                    }
+                                }
                             }
                         }
 
@@ -98,21 +107,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-        }
-    }
-
-    @Composable
-    private fun getIcon(index: Int, selected: Boolean): ImageVector {
-        return when (index) {
-            0 -> if (selected) ImageVector.vectorResource(R.drawable.ic_home_filled)
-                 else ImageVector.vectorResource(R.drawable.ic_home)
-            1 -> if (selected) ImageVector.vectorResource(R.drawable.ic_records_filled)
-                 else ImageVector.vectorResource(R.drawable.ic_records)
-            2 -> if (selected) ImageVector.vectorResource(R.drawable.ic_finance_filled)
-                 else ImageVector.vectorResource(R.drawable.ic_finance)
-            3 -> if (selected) ImageVector.vectorResource(R.drawable.ic_settings_filled)
-                 else ImageVector.vectorResource(R.drawable.ic_settings)
-            else -> ImageVector.vectorResource(R.drawable.ic_home)
         }
     }
 }

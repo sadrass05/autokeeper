@@ -1,12 +1,6 @@
 package com.example.autobookkeeper.ui.screen
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,33 +8,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.autobookkeeper.BuildConfig
 import com.example.autobookkeeper.ui.components.ChartType
 import com.example.autobookkeeper.ui.components.CategoryDonutChart
 import com.example.autobookkeeper.ui.components.DefaultCardPadding
@@ -50,12 +35,26 @@ import com.example.autobookkeeper.ui.components.TrendChart
 import com.example.autobookkeeper.ui.components.MonthlyBarChart
 import com.example.autobookkeeper.ui.components.TopExpensesCard
 import com.example.autobookkeeper.ui.viewmodel.MainViewModel
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.example.autobookkeeper.data.entity.ExpenseRecord
 import kotlin.math.abs
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 
 @Composable
 fun HomeScreen(
@@ -65,7 +64,12 @@ fun HomeScreen(
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     val dailyExpense by viewModel.dailyExpense.collectAsStateWithLifecycle()
     val monthlyExpense by viewModel.monthlyExpense.collectAsStateWithLifecycle()
-    val totalProfit by viewModel.totalProfit.collectAsStateWithLifecycle()
+    val totalProfit by if (BuildConfig.IS_PRO) {
+        viewModel.totalProfit.collectAsStateWithLifecycle()
+    } else {
+        @Suppress("UNCHECKED_CAST")
+        null as? androidx.compose.runtime.State<Double> ?: remember { mutableStateOf(0.0) }
+    }
     val trendData by viewModel.trendData.collectAsStateWithLifecycle()
     val todayCategoryData by viewModel.todayCategoryData.collectAsStateWithLifecycle()
     val monthlyStats by viewModel.monthlyStats.collectAsStateWithLifecycle()
@@ -144,6 +148,47 @@ fun HomeScreen(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+                        }
+                    }
+                }
+            }
+
+            if (BuildConfig.IS_PRO && totalProfit != null) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFF8E1)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp, horizontal = 20.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "💰",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "理财收益",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF8D6E63)
+                                )
+                                Text(
+                                    text = "¥${"%.2f".format(totalProfit ?: 0.0)}",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFF8F00)
+                                )
+                            }
                         }
                     }
                 }
@@ -316,8 +361,9 @@ fun TransactionItem(
     onClick: () -> Unit = {}
 ) {
     val financeGold = Color(0xFFFFB300)
+    val isFinance = BuildConfig.IS_PRO && expense.isFinanceExpense
     val amountColor = if (expense.amount >= 0) {
-        if (expense.isFinanceExpense) financeGold
+        if (isFinance) financeGold
         else MaterialTheme.colorScheme.error
     } else {
         MaterialTheme.colorScheme.tertiary
@@ -349,10 +395,10 @@ fun TransactionItem(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(if (expense.isFinanceExpense) Color(0xFFFFF8E1) else MaterialTheme.colorScheme.surfaceVariant),
+                    .background(if (isFinance) Color(0xFFFFF8E1) else MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                if (expense.isFinanceExpense) {
+                if (isFinance) {
                     Text(
                         text = "💰",
                         style = MaterialTheme.typography.titleMedium
@@ -383,7 +429,7 @@ fun TransactionItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    if (expense.isFinanceExpense) {
+                    if (isFinance) {
                         Text(
                             " 理财 ",
                             fontSize = 10.sp,

@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
@@ -62,6 +63,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.autobookkeeper.BuildConfig
+import com.example.autobookkeeper.backup.BackupFile
+import com.example.autobookkeeper.backup.BackupManager
+import com.example.autobookkeeper.backup.BackupResult
+import com.example.autobookkeeper.backup.RestoreResult
+import com.example.autobookkeeper.backup.WeeklyBackupWorker
 import com.example.autobookkeeper.data.SyncPrefs
 import com.example.autobookkeeper.data.repository.ExpenseRepository
 import com.example.autobookkeeper.network.SyncService
@@ -135,6 +142,16 @@ fun SettingsScreen() {
     }
     var isDarkTheme by remember { mutableStateOf(initialDarkTheme) }
 
+    val backupManager = runBlocking {
+        EntryPoints.get(context.applicationContext, BackupManagerEntryPoint::class.java).backupManager()
+    }
+    var showBackupSheet by remember { mutableStateOf(false) }
+    var backupList by remember { mutableStateOf<List<BackupFile>>(emptyList()) }
+    var isBackingUp by remember { mutableStateOf(false) }
+    var backupMessage by remember { mutableStateOf("") }
+    var restoreTargetFile by remember { mutableStateOf<BackupFile?>(null) }
+    var restoreResult by remember { mutableStateOf<RestoreResult?>(null) }
+
     androidx.compose.runtime.LaunchedEffect(Unit) {
         ThemePrefs.isDarkTheme(context).collect { dark ->
             isDarkTheme = dark
@@ -197,18 +214,20 @@ fun SettingsScreen() {
 
             SectionHeader(title = "数据")
 
-            GlassCard(contentPadding = PaddingValues(0.dp)) {
-                SettingsRow(
-                    icon = Icons.Default.Refresh,
-                    title = "数据同步",
-                    subtitle = if (syncPrefs.lastSyncTime > 0L)
-                        "上次同步: $lastSyncFormatted"
-                    else
-                        "点击配置同步服务器",
-                    onClick = { showSyncSheet = true }
-                )
+            if (BuildConfig.IS_PRO) {
+                GlassCard(contentPadding = PaddingValues(0.dp)) {
+                    SettingsRow(
+                        icon = Icons.Default.Refresh,
+                        title = "数据同步",
+                        subtitle = if (syncPrefs.lastSyncTime > 0L)
+                            "上次同步: $lastSyncFormatted"
+                        else
+                            "点击配置同步服务器",
+                        onClick = { showSyncSheet = true }
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
             GlassCard(contentPadding = PaddingValues(0.dp)) {
                 SettingsRow(
@@ -231,7 +250,6 @@ fun SettingsScreen() {
                         modifier = Modifier.padding(horizontal = 56.dp, vertical = 4.dp)
                     )
                 }
-                // --- 导出支出记录(CSV) ---
                 var isExportingExpenses by remember { mutableStateOf(false) }
                 var exportExpensesMessage by remember { mutableStateOf("") }
                 var exportExpensesError by remember { mutableStateOf(false) }
@@ -321,95 +339,105 @@ fun SettingsScreen() {
                     }
                 }
 
-                // --- 导出理财持仓(CSV) ---
-                var isExportingPositions by remember { mutableStateOf(false) }
-                var exportPositionsMessage by remember { mutableStateOf("") }
-                var exportPositionsError by remember { mutableStateOf(false) }
-                var exportedPositionsUri by remember { mutableStateOf<Uri?>(null) }
-                var exportedPositionsFileName by remember { mutableStateOf("") }
+                if (BuildConfig.IS_PRO) {
+                    var isExportingPositions by remember { mutableStateOf(false) }
+                    var exportPositionsMessage by remember { mutableStateOf("") }
+                    var exportPositionsError by remember { mutableStateOf(false) }
+                    var exportedPositionsUri by remember { mutableStateOf<Uri?>(null) }
+                    var exportedPositionsFileName by remember { mutableStateOf("") }
 
-                SettingsRow(
-                    icon = Icons.Default.ArrowDropDown,
-                    title = "导出理财持仓(CSV)",
-                    subtitle = if (isExportingPositions) "正在导出..."
-                               else if (exportPositionsMessage.isNotBlank()) exportPositionsMessage
-                               else "导出为CSV，可用Excel打开",
-                    onClick = {
-                        if (isExportingPositions) return@SettingsRow
-                        isExportingPositions = true
-                        exportPositionsMessage = ""
-                        exportPositionsError = false
-                        exportedPositionsUri = null
-                        exportedPositionsFileName = ""
-                        scope.launch {
-                            try {
-                                val result = withContext(Dispatchers.IO) {
-                                    csvExporter.exportPositions(context)
-                                }
-                                when (result) {
-                                    is ExportResult.Success -> {
-                                        exportedPositionsUri = result.uri
-                                        exportedPositionsFileName = result.fileName
-                                        exportPositionsMessage = "已导出 ${result.count} 条记录到下载文件夹：${result.fileName}"
-                                        exportPositionsError = false
+                    SettingsRow(
+                        icon = Icons.Default.ArrowDropDown,
+                        title = "导出理财持仓(CSV)",
+                        subtitle = if (isExportingPositions) "正在导出..."
+                                   else if (exportPositionsMessage.isNotBlank()) exportPositionsMessage
+                                   else "导出为CSV，可用Excel打开",
+                        onClick = {
+                            if (isExportingPositions) return@SettingsRow
+                            isExportingPositions = true
+                            exportPositionsMessage = ""
+                            exportPositionsError = false
+                            exportedPositionsUri = null
+                            exportedPositionsFileName = ""
+                            scope.launch {
+                                try {
+                                    val result = withContext(Dispatchers.IO) {
+                                        csvExporter.exportPositions(context)
                                     }
-                                    is ExportResult.Failure -> {
-                                        exportPositionsMessage = "导出失败：${result.error}"
-                                        exportPositionsError = true
+                                    when (result) {
+                                        is ExportResult.Success -> {
+                                            exportedPositionsUri = result.uri
+                                            exportedPositionsFileName = result.fileName
+                                            exportPositionsMessage = "已导出 ${result.count} 条记录到下载文件夹：${result.fileName}"
+                                            exportPositionsError = false
+                                        }
+                                        is ExportResult.Failure -> {
+                                            exportPositionsMessage = "导出失败：${result.error}"
+                                            exportPositionsError = true
+                                        }
                                     }
+                                } catch (e: Exception) {
+                                    exportPositionsMessage = "导出失败：${e.message}"
+                                    exportPositionsError = true
+                                } finally {
+                                    isExportingPositions = false
                                 }
-                            } catch (e: Exception) {
-                                exportPositionsMessage = "导出失败：${e.message}"
-                                exportPositionsError = true
-                            } finally {
-                                isExportingPositions = false
                             }
                         }
-                    }
-                )
-
-                if (exportPositionsMessage.isNotBlank()) {
-                    val msgColor = if (exportPositionsError) MaterialTheme.colorScheme.error
-                                   else Color(0xFF4CAF50)
-                    Text(
-                        text = exportPositionsMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = msgColor,
-                        modifier = Modifier.padding(horizontal = 56.dp)
                     )
-                    if (!exportPositionsError && exportedPositionsUri != null) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 56.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Button(
-                                onClick = {
-                                    val intent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/csv"
-                                        putExtra(Intent.EXTRA_STREAM, exportedPositionsUri)
-                                        putExtra(Intent.EXTRA_SUBJECT, exportedPositionsFileName)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(intent, "分享 $exportedPositionsFileName"))
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary
-                                ),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+
+                    if (exportPositionsMessage.isNotBlank()) {
+                        val msgColor = if (exportPositionsError) MaterialTheme.colorScheme.error
+                                       else Color(0xFF4CAF50)
+                        Text(
+                            text = exportPositionsMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = msgColor,
+                            modifier = Modifier.padding(horizontal = 56.dp)
+                        )
+                        if (!exportPositionsError && exportedPositionsUri != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 56.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.End
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "分享",
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("分享", fontSize = 12.sp)
+                                Button(
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/csv"
+                                            putExtra(Intent.EXTRA_STREAM, exportedPositionsUri)
+                                            putExtra(Intent.EXTRA_SUBJECT, exportedPositionsFileName)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, "分享 $exportedPositionsFileName"))
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "分享",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("分享", fontSize = 12.sp)
+                                }
                             }
                         }
                     }
                 }
+                SettingsRow(
+                    icon = Icons.Default.CloudUpload,
+                    title = "自动备份管理",
+                    subtitle = "查看备份文件、手动备份或恢复数据",
+                    onClick = {
+                        backupList = backupManager.getBackupList()
+                        showBackupSheet = true
+                    }
+                )
                 SettingsRow(
                     icon = Icons.Default.Delete,
                     title = "回收站",
@@ -454,7 +482,7 @@ fun SettingsScreen() {
         }
     }
 
-    if (showSyncSheet) {
+    if (BuildConfig.IS_PRO && showSyncSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showSyncSheet = false },
@@ -502,7 +530,7 @@ fun SettingsScreen() {
                             syncPrefs.serverIp = it
                         },
                         label = { Text("IP地址") },
-                        placeholder = { Text("192.168.1.100") },
+                        placeholder = { Text("例如: 192.168.1.100") },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -643,7 +671,7 @@ fun SettingsScreen() {
                                         ip = serverIp,
                                         port = syncPrefs.serverPort,
                                         expenses = viewModel.expenses.value.filter { !it.isDeleted },
-                                        positions = viewModel.positions.value,
+                                        positions = if (BuildConfig.IS_PRO) viewModel.positions.value else emptyList(),
                                         onProgress = { msg ->
                                             scope.launch(Dispatchers.Main) {
                                                 syncMessage = msg
@@ -673,7 +701,7 @@ fun SettingsScreen() {
                                         ip = serverIp,
                                         port = syncPrefs.serverPort,
                                         expenses = viewModel.expenses.value.filter { !it.isDeleted },
-                                        positions = viewModel.positions.value,
+                                        positions = if (BuildConfig.IS_PRO) viewModel.positions.value else emptyList(),
                                         onProgress = { msg ->
                                             scope.launch(Dispatchers.Main) {
                                                 syncMessage = msg
@@ -711,6 +739,211 @@ fun SettingsScreen() {
                 }
             }
         }
+    }
+
+    if (showBackupSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showBackupSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = "自动备份管理",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                val lastBackup = backupList.firstOrNull()
+                Text(
+                    text = if (lastBackup != null)
+                        "上次备份: ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(lastBackup.date)}"
+                    else "暂无备份",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (backupList.isEmpty()) {
+                    Text(
+                        text = "暂无备份文件，点击下方按钮立即创建",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    Text(
+                        text = "备份文件列表",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    backupList.forEach { backup ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = backup.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${formatFileSize(backup.size)} · ${backup.recordCount} 条记录",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = { restoreTargetFile = backup },
+                                modifier = Modifier.padding(end = 4.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("恢复", fontSize = 12.sp)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    backupManager.deleteBackup(backup.file)
+                                    backupList = backupManager.getBackupList()
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("删除", fontSize = 12.sp)
+                            }
+                        }
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            thickness = 0.5.dp
+                        )
+                    }
+                }
+
+                if (backupMessage.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = backupMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF4CAF50),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                FilledTonalButton(
+                    onClick = {
+                        isBackingUp = true
+                        backupMessage = ""
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                backupManager.performManualBackup()
+                            }
+                            withContext(Dispatchers.Main) {
+                                isBackingUp = false
+                                when (result) {
+                                    is BackupResult.Success -> {
+                                        backupMessage = "备份成功：${result.fileName}（${result.count}条记录）"
+                                        backupList = backupManager.getBackupList()
+                                    }
+                                    is BackupResult.Failure -> {
+                                        backupMessage = "备份失败：${result.error}"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isBackingUp
+                ) {
+                    if (isBackingUp) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(if (isBackingUp) "正在备份..." else "立即备份")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "每周自动备份一次，保留最近两周的备份数据",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+
+    restoreTargetFile?.let { target ->
+        AlertDialog(
+            onDismissRequest = { restoreTargetFile = null },
+            title = { Text("从备份恢复") },
+            text = {
+                Text("将从备份文件 ${target.name} 恢复数据。\n\n仅恢复备份日期之前缺失的数据，不会覆盖已有记录或影响备份后的新数据。\n\n确认继续？")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val file = target.file
+                        restoreTargetFile = null
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                backupManager.restoreFromBackup(file)
+                            }
+                            withContext(Dispatchers.Main) {
+                                restoreResult = result
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("确认恢复")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { restoreTargetFile = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    restoreResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = { restoreResult = null },
+            title = { Text(if (result is RestoreResult.Success) "恢复成功" else "恢复失败") },
+            text = {
+                Text(
+                    if (result is RestoreResult.Success)
+                        "成功恢复 ${result.restoredCount} 条记录"
+                    else
+                        (result as? RestoreResult.Failure)?.error ?: "恢复过程出错"
+                )
+            },
+            confirmButton = {
+                Button(onClick = { restoreResult = null }) {
+                    Text("确定")
+                }
+            }
+        )
     }
 
     if (showCleanupDialog) {
@@ -888,6 +1121,12 @@ interface ExpenseRepoEntryPoint {
     fun expenseRepository(): ExpenseRepository
 }
 
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface BackupManagerEntryPoint {
+    fun backupManager(): BackupManager
+}
+
 @Composable
 fun InfoRow(label: String, value: String) {
     Column {
@@ -914,5 +1153,13 @@ fun InfoRow(label: String, value: String) {
             thickness = 0.5.dp,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
     }
 }

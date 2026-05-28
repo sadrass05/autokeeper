@@ -26,7 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange   // 替代 CalendarMonth
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
@@ -42,7 +42,6 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -75,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.autobookkeeper.BuildConfig
 import com.example.autobookkeeper.data.entity.Category
 import com.example.autobookkeeper.data.entity.ExpenseRecord
 import com.example.autobookkeeper.ui.components.CategoryCircleIcon
@@ -254,12 +254,12 @@ fun RecordsScreen(viewModel: MainViewModel = hiltViewModel()) {
                 }
                 editingExpense = null
             },
-            onUpdateFinanceFlag = { isFinance ->
+            onUpdateFinanceFlag = if (BuildConfig.IS_PRO) { isFinance ->
                 scope.launch {
                     viewModel.updateExpenseFinanceFlag(expense.id, isFinance)
                 }
                 editingExpense = null
-            }
+            } else null
         )
     }
 
@@ -355,7 +355,7 @@ private fun FilterDropdown(
             ),
             singleLine = true,
             modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .menuAnchor()
                 .fillMaxWidth()
         )
 
@@ -452,7 +452,7 @@ private fun AddExpenseSheet(
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onBackground),
                     singleLine = true,
                     modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .menuAnchor()
                         .fillMaxWidth()
                 )
                 ExposedDropdownMenu(
@@ -496,7 +496,7 @@ private fun AddExpenseSheet(
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onBackground),
                     singleLine = true,
                     modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .menuAnchor()
                         .fillMaxWidth()
                 )
                 ExposedDropdownMenu(
@@ -631,25 +631,27 @@ private fun AddExpenseSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "理财支出标记",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Switch(
-                    checked = isFinanceExpense,
-                    onCheckedChange = { checked ->
-                        isFinanceExpense = checked
-                        if (checked) {
-                            selectedCategory = "理财支出"
+            if (BuildConfig.IS_PRO) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "理财支出标记",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Switch(
+                        checked = isFinanceExpense,
+                        onCheckedChange = { checked ->
+                            isFinanceExpense = checked
+                            if (checked) {
+                                selectedCategory = "理财支出"
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -668,7 +670,7 @@ private fun AddExpenseSheet(
                         platform = selectedPlatform,
                         paymentChannel = paymentChannel,
                         category = selectedCategory,
-                        isFinanceExpense = isFinanceExpense,
+                        isFinanceExpense = if (BuildConfig.IS_PRO) isFinanceExpense else false,
                         recordedAt = recordedAt,
                         notificationId = "manual_$recordedAt"
                     )
@@ -836,7 +838,7 @@ private fun EditRecordSheet(
     categories: List<Category>,
     onDismiss: () -> Unit,
     onUpdateCategory: (String) -> Unit,
-    onUpdateFinanceFlag: (Boolean) -> Unit
+    onUpdateFinanceFlag: ((Boolean) -> Unit)?
 ) {
     val sheetState = rememberModalBottomSheetState()
     var selectedCategory by remember { mutableStateOf(expense.category) }
@@ -934,7 +936,7 @@ private fun EditRecordSheet(
                     ),
                     singleLine = true,
                     modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .menuAnchor()
                         .fillMaxWidth()
                 )
 
@@ -961,27 +963,29 @@ private fun EditRecordSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "理财支出标记",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Switch(
-                    checked = isFinanceExpense,
-                    onCheckedChange = { checked ->
-                        isFinanceExpense = checked
-                        if (checked) {
-                            selectedCategory = "理财支出"
-                        } else {
-                            selectedCategory = "未分类"
+            if (BuildConfig.IS_PRO && onUpdateFinanceFlag != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "理财支出标记",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Switch(
+                        checked = isFinanceExpense,
+                        onCheckedChange = { checked ->
+                            isFinanceExpense = checked
+                            if (checked) {
+                                selectedCategory = "理财支出"
+                            } else {
+                                selectedCategory = "未分类"
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -991,7 +995,7 @@ private fun EditRecordSheet(
                     if (selectedCategory.isNotEmpty()) {
                         onUpdateCategory(selectedCategory)
                     }
-                    if (isFinanceExpense != expense.isFinanceExpense) {
+                    if (BuildConfig.IS_PRO && onUpdateFinanceFlag != null && isFinanceExpense != expense.isFinanceExpense) {
                         onUpdateFinanceFlag(isFinanceExpense)
                     }
                 },

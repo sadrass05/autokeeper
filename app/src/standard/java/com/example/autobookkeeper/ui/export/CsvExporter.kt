@@ -7,7 +7,6 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.example.autobookkeeper.data.repository.ExpenseRepository
-import com.example.autobookkeeper.data.repository.FinanceRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -16,14 +15,10 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.example.autobookkeeper.ui.export.ExportResult
-import com.example.autobookkeeper.ui.export.ExportResult.Success
-import com.example.autobookkeeper.ui.export.ExportResult.Failure
 
 @Singleton
 class CsvExporter @Inject constructor(
-    private val expenseRepository: ExpenseRepository,
-    private val financeRepository: FinanceRepository
+    private val expenseRepository: ExpenseRepository
 ) {
 
     private fun buildCsv(
@@ -84,11 +79,11 @@ class CsvExporter @Inject constructor(
         val rows = expenses.map { e ->
             listOf(
                 dateFormat.format(Date(e.recordedAt)),
-                e.merchant,
+                e.merchant.ifBlank { "未知商户" },
                 "%.2f".format(e.amount),
-                e.platform,
-                e.paymentChannel,
-                e.category,
+                e.platform.ifBlank { "未知平台" },
+                e.paymentChannel.ifBlank { "未知" },
+                e.category.ifBlank { "未分类" },
                 if (e.isFinanceExpense) "是" else "否"
             )
         }
@@ -104,34 +99,6 @@ class CsvExporter @Inject constructor(
     }
 
     suspend fun exportPositions(context: Context): ExportResult {
-        val dateStr = SimpleDateFormat(
-            "yyyyMMdd_HHmm", Locale.getDefault()
-        ).format(Date())
-        val fileName = "finance_positions_$dateStr.csv"
-        val positions = financeRepository.getAllPositionsOnce()
-        val headers = listOf(
-            "产品名称", "平台", "买入金额",
-            "当前市值", "收益", "收益率(%)"
-        )
-        val rows = positions.map { p ->
-            listOf(
-                p.productName,
-                p.platform,
-                "%.2f".format(p.buyAmount),
-                "%.2f".format(p.currentValue),
-                "%.2f".format(p.profit),
-                "%.2f".format(p.profitRate)
-            )
-        }
-        val csv = buildCsv(headers, rows)
-        return saveToDownloads(context, fileName, csv).fold(
-            onSuccess = { uri ->
-                ExportResult.Success(fileName, uri, positions.size)
-            },
-            onFailure = { e ->
-                ExportResult.Failure(e.message ?: "未知错误")
-            }
-        )
+        return ExportResult.Failure("标准版不支持导出理财持仓")
     }
 }
-

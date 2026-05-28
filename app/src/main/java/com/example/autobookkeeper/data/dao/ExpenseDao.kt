@@ -65,6 +65,15 @@ interface ExpenseDao {
     @Query("UPDATE expenses SET isDeleted = 1 WHERE id = :id")
     suspend fun softDelete(id: Long)
 
+    @Query("UPDATE expenses SET isDeleted = 1, deletedAt = :timestamp WHERE id = :id")
+    suspend fun markAsDeleted(id: Long, timestamp: Long)
+
+    @Query("SELECT * FROM expenses WHERE isDeleted = 0 AND recordedAt < :time ORDER BY recordedAt DESC")
+    fun getExpensesBeforeTime(time: Long): Flow<List<ExpenseRecord>>
+
+    @Query("SELECT * FROM expenses WHERE isDeleted = 0 ORDER BY recordedAt DESC")
+    fun getAllActiveExpenses(): Flow<List<ExpenseRecord>>
+
     @Query("SELECT * FROM expenses WHERE isDeleted = 1 ORDER BY recordedAt DESC")
     fun getDeletedExpenses(): Flow<List<ExpenseRecord>>
 

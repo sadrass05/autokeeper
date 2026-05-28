@@ -1,11 +1,7 @@
 package com.example.autobookkeeper.data.repository
 
-import com.example.autobookkeeper.data.dao.CategoryDao
 import com.example.autobookkeeper.data.dao.ExpenseDao
-import com.example.autobookkeeper.data.dao.FinanceDao
-import com.example.autobookkeeper.data.entity.Category
 import com.example.autobookkeeper.data.entity.ExpenseRecord
-import com.example.autobookkeeper.data.entity.FinancePosition
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -113,5 +109,9 @@ class ExpenseRepository @Inject constructor(
 
     suspend fun getTotalFinanceFlaggedExpense(): Double {
         return expenseDao.getTotalFinanceExpense() ?: 0.0
+    }
+
+    fun getExpensesBeforeTime(time: Long): Flow<List<ExpenseRecord>> {
+        return expenseDao.getExpensesBeforeTime(time)
     }
 }

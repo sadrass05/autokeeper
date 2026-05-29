@@ -134,37 +134,39 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
-            financeRepository.getAllPositions().collect {
-                _positions.value = it
-                calculateTotalProfit()
+        if (BuildConfig.IS_PRO) {
+            viewModelScope.launch {
+                financeRepository.getAllPositions().collect {
+                    _positions.value = it
+                    calculateTotalProfit()
+                }
             }
-        }
 
-        viewModelScope.launch {
-            financeExpense.collect { calculateNetFinanceProfit() }
-        }
+            viewModelScope.launch {
+                financeExpense.collect { calculateNetFinanceProfit() }
+            }
 
-        viewModelScope.launch {
-            accumulatedProfit.collect { calculateNetFinanceProfit() }
+            viewModelScope.launch {
+                accumulatedProfit.collect { calculateNetFinanceProfit() }
+            }
+
+            viewModelScope.launch {
+                financeExpenseRepository.getAllExpenses().collect {
+                    _financeExpenses.value = it
+                    calculateFinanceExpense()
+                }
+            }
+
+            viewModelScope.launch {
+                expenseRepository.getFinanceFlaggedExpenses().collect {
+                    _financeExpenseRecords.value = it.sortedByDescending { e -> e.amount }
+                }
+            }
         }
 
         viewModelScope.launch {
             categoryRepository.getAllCategories().collect {
                 _categories.value = it
-            }
-        }
-
-        viewModelScope.launch {
-            financeExpenseRepository.getAllExpenses().collect {
-                _financeExpenses.value = it
-                calculateFinanceExpense()
-            }
-        }
-
-        viewModelScope.launch {
-            expenseRepository.getFinanceFlaggedExpenses().collect {
-                _financeExpenseRecords.value = it.sortedByDescending { e -> e.amount }
             }
         }
     }

@@ -46,6 +46,7 @@
 - ✅ **数据一致性校验** —— 启动时自动对比 app 数据与最新备份的记录数
 - 📤 **CSV 导入导出** —— Excel 可直接打开，换机 / 重装不丢数据
 - 🌙 **深色 / 浅色主题** —— 跟随系统或手动切换，护眼模式安排上
+- 🔄 **Standard 版完全独立** —— 无 Pro 残留，导入 Pro 数据自动转换为普通支出，统计数据完整包含所有记录
 
 ---
 
@@ -54,7 +55,7 @@
 | 层级 | 技术选型 | 为什么用它 |
 |------|----------|-----------|
 | UI | **Jetpack Compose + Material3** | 声明式 UI，写起来爽，动画天然流畅 |
-| 架构 | **MVVM + Hilt DI** | ViewModel 管理状态，Hilt 自动注入，少写样板代码 |
+| 架构 | **MVVM + Hilt DI** | ViewModel 管理状态，Hilt 自动注入 + EntryPoint 模式跨组件访问依赖，少写样板代码 |
 | 本地数据库 | **Room + Flow** | Flow 响应式查询，UI 自动更新，不用手动 refresh |
 | 网络 | **Retrofit2 + OkHttp3** | Pro 版同步 MySQL 用，声明式 API 定义 |
 | 图表 | **MPAndroidChart** | 折线图、柱状图、饼图、环形图全靠它 |
@@ -115,6 +116,7 @@ app/src/
 │   │   │   ├── entity/           # 数据实体（含软删除字段）
 │   │   │   └── repository/       # Repository 封装
 │   │   ├── di/                   # Hilt 依赖注入模块
+│   │   │   └── EntryPointAccessors.kt  # Hilt EntryPoint 接口 + 扩展函数(自包含,无循环依赖)
 │   │   ├── notification/         # 通知监听 & 支付解析
 │   │   │   ├── NotificationListener.kt
 │   │   │   └── PaymentParser.kt      # 黑名单过滤 + 正则提取

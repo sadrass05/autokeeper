@@ -12,22 +12,23 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.example.autobookkeeper.BuildConfig
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedInject
+import com.example.autobookkeeper.App
 import java.util.concurrent.TimeUnit
 
-class WeeklyBackupWorker @AssistedInject constructor(
-    @Assisted context: Context,
-    @Assisted params: WorkerParameters,
-    private val backupManager: BackupManager
+class WeeklyBackupWorker(
+    context: Context,
+    params: WorkerParameters
 ) : CoroutineWorker(context, params) {
+
+    private val backupManager: BackupManager by lazy {
+        App.instance.backupManager
+    }
 
     override suspend fun doWork(): Result {
         return try {
             Log.d(TAG, "Starting weekly backup...")
             val result = backupManager.performWeeklyBackup()
-            
+
             when (result) {
                 is BackupResult.Success -> {
                     Log.i(TAG, "Weekly backup completed: ${result.fileName} (${result.count} records)")
@@ -74,7 +75,8 @@ class WeeklyBackupWorker @AssistedInject constructor(
         fun triggerNow(context: Context) {
             val request = OneTimeWorkRequestBuilder<WeeklyBackupWorker>()
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork("${TAG}_manual", ExistingWorkPolicy.REPLACE, request)
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork("${TAG}_manual", ExistingWorkPolicy.REPLACE, request)
         }
     }
 }

@@ -48,6 +48,7 @@ import kotlin.math.abs
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.State
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.background
@@ -68,7 +69,7 @@ fun HomeScreen(
         viewModel.totalProfit.collectAsStateWithLifecycle()
     } else {
         @Suppress("UNCHECKED_CAST")
-        null as? androidx.compose.runtime.State<Double> ?: remember { mutableStateOf(0.0) }
+        null as? State<Double> ?: remember { mutableStateOf(0.0) }
     }
     val trendData by viewModel.trendData.collectAsStateWithLifecycle()
     val todayCategoryData by viewModel.todayCategoryData.collectAsStateWithLifecycle()

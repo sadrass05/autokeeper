@@ -86,6 +86,9 @@ interface ExpenseDao {
     @Query("UPDATE expenses SET isDeleted = 0 WHERE id = :id")
     suspend fun restoreExpense(id: Long)
 
+    @Query("UPDATE expenses SET isFinanceExpense = 0 WHERE isFinanceExpense = 1")
+    suspend fun clearAllFinanceFlags()
+
     @Query("SELECT * FROM expenses WHERE isDeleted = 0 ORDER BY recordedAt DESC")
     suspend fun getAllExpensesList(): List<ExpenseRecord>
 

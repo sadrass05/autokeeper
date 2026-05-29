@@ -68,6 +68,8 @@ class ImportManager @Inject constructor(
                 val amount = cols[2].trim().replace("\"", "")
                     .replace("¥", "").replace("￥", "")
                     .toDoubleOrNull() ?: 0.0
+                val rawCategory = cols.getOrNull(5)?.trim()?.replace("\"", "")
+                    ?.ifBlank { "未分类" } ?: "未分类"
                 val record = ExpenseRecord(
                     merchant = cols.getOrNull(1)?.trim()?.replace("\"", "")
                         ?.ifBlank { "未知商户" } ?: "未知商户",
@@ -76,9 +78,8 @@ class ImportManager @Inject constructor(
                         ?.ifBlank { "未知平台" } ?: "未知平台",
                     paymentChannel = cols.getOrNull(4)?.trim()?.replace("\"", "")
                         ?.ifBlank { "未知" } ?: "未知",
-                    category = cols.getOrNull(5)?.trim()?.replace("\"", "")
-                        ?.ifBlank { "未分类" } ?: "未分类",
-                    isFinanceExpense = cols.getOrNull(6)?.trim()?.replace("\"", "")?.contains("是") == true,
+                    category = if (rawCategory == "理财支出") "其他" else rawCategory,
+                    isFinanceExpense = false,
                     recordedAt = parseDateTime(cols[0]),
                     notificationId = "import_csv_${System.currentTimeMillis()}_${index + 2}"
                 )
@@ -111,6 +112,8 @@ class ImportManager @Inject constructor(
                 val amount = map["金额"]
                     ?.replace("¥", "")?.replace("￥", "")
                     ?.toDoubleOrNull() ?: 0.0
+                val rawCategory = map["分类"]
+                    ?.ifBlank { "未分类" } ?: "未分类"
                 val record = ExpenseRecord(
                     merchant = map["商户名称"]
                         ?.ifBlank { "未知商户" } ?: "未知商户",
@@ -119,9 +122,8 @@ class ImportManager @Inject constructor(
                         ?.ifBlank { "未知平台" } ?: "未知平台",
                     paymentChannel = map["支付渠道"]
                         ?.ifBlank { "未知" } ?: "未知",
-                    category = map["分类"]
-                        ?.ifBlank { "未分类" } ?: "未分类",
-                    isFinanceExpense = (map["是否理财支出"] ?: "").contains("是"),
+                    category = if (rawCategory == "理财支出") "其他" else rawCategory,
+                    isFinanceExpense = false,
                     recordedAt = parseDateTime(map["日期时间"] ?: map["日期"] ?: ""),
                     notificationId = "import_txt_${System.currentTimeMillis()}_$blockIndex"
                 )

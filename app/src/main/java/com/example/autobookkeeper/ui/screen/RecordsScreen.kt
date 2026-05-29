@@ -3,6 +3,7 @@ package com.example.autobookkeeper.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +28,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -89,7 +89,6 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.ExperimentalFoundationApi
 
 private val platformOptions = listOf("全部", "微信", "支付宝", "拼多多")
@@ -563,7 +562,7 @@ private fun AddExpenseSheet(
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        Icons.Default.Schedule,
+                        Icons.Default.DateRange,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
@@ -740,12 +739,16 @@ private fun SwipeableRecordItem(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .clickable(onClick = onClick)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
+                )
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val financeGold = Color(0xFFFFB300)
-            if (expense.isFinanceExpense) {
+            if (BuildConfig.IS_PRO && expense.isFinanceExpense) {
                 Box(
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFFFFF8E1)),
                     contentAlignment = Alignment.Center
@@ -781,7 +784,7 @@ private fun SwipeableRecordItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    if (expense.isFinanceExpense) {
+                    if (BuildConfig.IS_PRO && expense.isFinanceExpense) {
                         Text(
                             " 理财",
                             fontSize = 10.sp,
@@ -800,7 +803,7 @@ private fun SwipeableRecordItem(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
                 color = if (expense.amount < 0) MaterialTheme.colorScheme.tertiary
-                        else if (expense.isFinanceExpense) financeGold
+                        else if (BuildConfig.IS_PRO && expense.isFinanceExpense) financeGold
                         else MaterialTheme.colorScheme.error
             )
         }

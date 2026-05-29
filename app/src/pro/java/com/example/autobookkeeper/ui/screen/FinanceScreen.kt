@@ -1,4 +1,4 @@
-package com.example.autobookkeeper.ui.screen
+﻿package com.example.autobookkeeper.ui.screen
 
 import android.content.Context
 import android.net.Uri
@@ -10,6 +10,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,10 +33,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -99,6 +100,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.platform.LocalLocale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -211,7 +213,10 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
                                     .background(MaterialTheme.colorScheme.outlineVariant)
                             )
                             Box(
-                                modifier = Modifier.weight(1f).clickable {
+                                modifier = Modifier.weight(1f).clickable(
+                                    interactionSource = MutableInteractionSource(),
+                                    indication = null
+                                ) {
                                     accumulatedProfitEditText = if (accumulatedProfit == 0.0) "" else accumulatedProfit.toString()
                                     showEditAccumulatedProfit = true
                                 },
@@ -322,7 +327,7 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
                                             color = MaterialTheme.colorScheme.error
                                         )
                                         Text(
-                                            java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(expense.recordedAt)),
+                                            java.text.SimpleDateFormat("MM-dd HH:mm", LocalLocale.current.platformLocale).format(java.util.Date(expense.recordedAt)),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -425,7 +430,7 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
                                             color = MaterialTheme.colorScheme.error
                                         )
                                         Text(
-                                            java.text.SimpleDateFormat("MM-dd", java.util.Locale.getDefault()).format(java.util.Date(record.recordedAt)),
+                                            java.text.SimpleDateFormat("MM-dd", LocalLocale.current.platformLocale).format(java.util.Date(record.recordedAt)),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -645,12 +650,13 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
     }
 
     if (showDeleteSheet && positionToDelete != null) {
+        val targetPos = positionToDelete
         DeleteFinanceSheet(
-            positionName = positionToDelete!!.productName,
+            positionName = targetPos?.productName ?: "未知持仓",
             onDismiss = { showDeleteSheet = false; positionToDelete = null },
             onDelete = {
                 coroutineScope.launch {
-                    positionToDelete?.let { viewModel.deleteFinancePosition(it.id.toLong()) }
+                    targetPos?.let { viewModel.deleteFinancePosition(it.id.toLong()) }
                     showDeleteSheet = false; positionToDelete = null
                 }
             }
@@ -658,21 +664,23 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
     }
 
     if (showAddAmountDialog && contextMenuPosition != null) {
+        val targetPos = contextMenuPosition
         AlertDialog(
             onDismissRequest = { showAddAmountDialog = false },
             title = { Text("加仓") },
             text = { OutlinedTextField(value = addReduceAmount, onValueChange = { addReduceAmount = it }, label = { Text("加仓金额") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { Button(onClick = { val amount = addReduceAmount.toDoubleOrNull() ?: 0.0; if (amount > 0 && contextMenuPosition != null) { val updated = contextMenuPosition!!.copy(buyAmount = contextMenuPosition!!.buyAmount + amount, currentValue = contextMenuPosition!!.currentValue + amount); coroutineScope.launch { viewModel.updateFinancePosition(updated) } }; showAddAmountDialog = false }) { Text("确定") } },
+            confirmButton = { Button(onClick = { val amount = addReduceAmount.toDoubleOrNull() ?: 0.0; if (amount > 0) { targetPos?.let { pos -> val updated = pos.copy(buyAmount = pos.buyAmount + amount, currentValue = pos.currentValue + amount); coroutineScope.launch { viewModel.updateFinancePosition(updated) } } }; showAddAmountDialog = false }) { Text("确定") } },
             dismissButton = { Button(onClick = { showAddAmountDialog = false }) { Text("取消") } }
         )
     }
 
     if (showReduceAmountDialog && contextMenuPosition != null) {
+        val targetPos = contextMenuPosition
         AlertDialog(
             onDismissRequest = { showReduceAmountDialog = false },
             title = { Text("减仓") },
             text = { OutlinedTextField(value = addReduceAmount, onValueChange = { addReduceAmount = it }, label = { Text("减仓金额") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { Button(onClick = { val amount = addReduceAmount.toDoubleOrNull() ?: 0.0; if (amount > 0 && contextMenuPosition != null) { val updated = contextMenuPosition!!.copy(buyAmount = (contextMenuPosition!!.buyAmount - amount).coerceAtLeast(0.0), currentValue = (contextMenuPosition!!.currentValue - amount).coerceAtLeast(0.0)); coroutineScope.launch { viewModel.updateFinancePosition(updated) } }; showReduceAmountDialog = false }) { Text("确定") } },
+            confirmButton = { Button(onClick = { val amount = addReduceAmount.toDoubleOrNull() ?: 0.0; if (amount > 0) { targetPos?.let { pos -> val updated = pos.copy(buyAmount = (pos.buyAmount - amount).coerceAtLeast(0.0), currentValue = (pos.currentValue - amount).coerceAtLeast(0.0)); coroutineScope.launch { viewModel.updateFinancePosition(updated) } } }; showReduceAmountDialog = false }) { Text("确定") } },
             dismissButton = { Button(onClick = { showReduceAmountDialog = false }) { Text("取消") } }
         )
     }
@@ -830,12 +838,13 @@ private fun AddFinanceExpenseSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("${selectedDate.monthValue}月${selectedDate.dayOfMonth}日", fontSize = 13.sp)
                 }
                 OutlinedButton(onClick = { showTimePicker = true }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.AddCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(String.format("%02d:%02d", selectedTime.hour, selectedTime.minute), fontSize = 13.sp)
                 }
@@ -1039,7 +1048,7 @@ private fun formatFinanceAmount(value: Double): String {
 private fun StatCell(
     label: String,
     value: String,
-    valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
     modifier: Modifier = Modifier,
     alignment: Alignment.Horizontal = Alignment.CenterHorizontally
 ) {

@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Column
@@ -28,7 +29,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
@@ -62,33 +64,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.autobookkeeper.BuildConfig
 import com.example.autobookkeeper.backup.BackupFile
-import com.example.autobookkeeper.backup.BackupManager
+import com.example.autobookkeeper.di.currentBackupManager
 import com.example.autobookkeeper.backup.BackupResult
 import com.example.autobookkeeper.backup.RestoreResult
 import com.example.autobookkeeper.backup.WeeklyBackupWorker
-import com.example.autobookkeeper.data.SyncPrefs
-import com.example.autobookkeeper.data.repository.ExpenseRepository
-import com.example.autobookkeeper.network.SyncService
+import com.example.autobookkeeper.di.currentSyncPrefs
+import com.example.autobookkeeper.di.currentExpenseRepository
+import com.example.autobookkeeper.di.currentSyncService
 import com.example.autobookkeeper.network.DiagnosticsStep
-import com.example.autobookkeeper.ui.export.CsvExporter
+import com.example.autobookkeeper.di.currentCsvExporter
 import com.example.autobookkeeper.ui.export.ExportResult
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import dagger.hilt.EntryPoints
-import com.example.autobookkeeper.ui.importdata.ImportManager
+import com.example.autobookkeeper.di.currentImportManager
 import com.example.autobookkeeper.ui.importdata.ImportResult
 import com.example.autobookkeeper.ui.components.GlassCard
 import com.example.autobookkeeper.ui.theme.ThemePrefs
 import com.example.autobookkeeper.ui.viewmodel.MainViewModel
+import com.example.autobookkeeper.data.SyncPrefs
+import com.example.autobookkeeper.network.SyncService
+import com.example.autobookkeeper.ui.export.CsvExporter
+import com.example.autobookkeeper.ui.importdata.ImportManager
+import com.example.autobookkeeper.data.repository.ExpenseRepository
+import com.example.autobookkeeper.backup.BackupManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import androidx.compose.runtime.LaunchedEffect
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -113,37 +117,42 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val viewModel: MainViewModel = hiltViewModel()
-    val syncPrefs = runBlocking {
-        EntryPoints.get(context.applicationContext, SyncPrefsEntryPoint::class.java).syncPrefs()
+
+    var currentSyncPrefs by remember { mutableStateOf<SyncPrefs?>(null) }
+    var currentSyncService by remember { mutableStateOf<SyncService?>(null) }
+    var currentCsvExporter by remember { mutableStateOf<CsvExporter?>(null) }
+    var currentImportManager by remember { mutableStateOf<ImportManager?>(null) }
+    var currentExpenseRepository by remember { mutableStateOf<ExpenseRepository?>(null) }
+    var currentBackupManager by remember { mutableStateOf<BackupManager?>(null) }
+    var initialized by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val appContext = context.applicationContext
+        currentSyncPrefs = appContext.currentSyncPrefs()
+        currentSyncService = appContext.currentSyncService()
+        currentCsvExporter = appContext.currentCsvExporter()
+        currentImportManager = appContext.currentImportManager()
+        currentExpenseRepository = appContext.currentExpenseRepository()
+        currentBackupManager = appContext.currentBackupManager()
+        initialized = true
     }
-    val syncService = runBlocking {
-        EntryPoints.get(context.applicationContext, SyncServiceEntryPoint::class.java).syncService()
-    }
-    val csvExporter = runBlocking {
-        EntryPoints.get(context.applicationContext, CsvExporterEntryPoint::class.java).csvExporter()
-    }
-    val importManager = runBlocking {
-        EntryPoints.get(context.applicationContext, ImportManagerEntryPoint::class.java).importManager()
-    }
-    val expenseRepository = runBlocking {
-        EntryPoints.get(context.applicationContext, ExpenseRepoEntryPoint::class.java).expenseRepository()
-    }
+
     var importResult by remember { mutableStateOf<ImportResult?>(null) }
     var isImporting by remember { mutableStateOf(false) }
     var showTrash by remember { mutableStateOf(false) }
-    var serverIp by remember { mutableStateOf(syncPrefs.serverIp) }
-    var serverPortText by remember { mutableStateOf(syncPrefs.serverPort.toString()) }
-    val lastSyncFormatted = if (syncPrefs.lastSyncTime > 0L) {
+    var serverIp by remember { mutableStateOf(currentSyncPrefs?.serverIp ?: "") }
+    var serverPortText by remember { mutableStateOf((currentSyncPrefs?.serverPort ?: 5000).toString()) }
+    val lastSyncFormatted = if ((currentSyncPrefs?.lastSyncTime ?: 0L) > 0L) {
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", LocalLocale.current.platformLocale)
-            .format(Date(syncPrefs.lastSyncTime))
+            .format(Date(currentSyncPrefs?.lastSyncTime ?: 0L))
     } else "从未同步"
-    val initialDarkTheme = remember {
-        runBlocking { ThemePrefs.isDarkTheme(context).first() }
-    }
+    val initialDarkTheme = remember { false }
     var isDarkTheme by remember { mutableStateOf(initialDarkTheme) }
 
-    val backupManager = runBlocking {
-        EntryPoints.get(context.applicationContext, BackupManagerEntryPoint::class.java).backupManager()
+    LaunchedEffect(Unit) {
+        ThemePrefs.isDarkTheme(context).collect { dark ->
+            isDarkTheme = dark
+        }
     }
     var showBackupSheet by remember { mutableStateOf(false) }
     var backupList by remember { mutableStateOf<List<BackupFile>>(emptyList()) }
@@ -152,12 +161,6 @@ fun SettingsScreen() {
     var restoreTargetFile by remember { mutableStateOf<BackupFile?>(null) }
     var restoreResult by remember { mutableStateOf<RestoreResult?>(null) }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        ThemePrefs.isDarkTheme(context).collect { dark ->
-            isDarkTheme = dark
-        }
-    }
-
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -165,7 +168,7 @@ fun SettingsScreen() {
             isImporting = true
             scope.launch {
                 val result = withContext(Dispatchers.IO) {
-                    importManager.importFile(uri)
+                    currentImportManager?.importFile(uri)
                 }
                 importResult = result
                 isImporting = false
@@ -219,7 +222,7 @@ fun SettingsScreen() {
                     SettingsRow(
                         icon = Icons.Default.Refresh,
                         title = "数据同步",
-                        subtitle = if (syncPrefs.lastSyncTime > 0L)
+                        subtitle = if ((currentSyncPrefs?.lastSyncTime ?: 0L) > 0L)
                             "上次同步: $lastSyncFormatted"
                         else
                             "点击配置同步服务器",
@@ -272,7 +275,7 @@ fun SettingsScreen() {
                         scope.launch {
                             try {
                                 val result = withContext(Dispatchers.IO) {
-                                    csvExporter.exportExpenses(context)
+                                    currentCsvExporter?.exportExpenses(context)
                                 }
                                 when (result) {
                                     is ExportResult.Success -> {
@@ -283,6 +286,10 @@ fun SettingsScreen() {
                                     }
                                     is ExportResult.Failure -> {
                                         exportExpensesMessage = "导出失败：${result.error}"
+                                        exportExpensesError = true
+                                    }
+                                    else -> {
+                                        exportExpensesMessage = "导出失败：服务未初始化"
                                         exportExpensesError = true
                                     }
                                 }
@@ -362,7 +369,7 @@ fun SettingsScreen() {
                             scope.launch {
                                 try {
                                     val result = withContext(Dispatchers.IO) {
-                                        csvExporter.exportPositions(context)
+                                        currentCsvExporter?.exportPositions(context)
                                     }
                                     when (result) {
                                         is ExportResult.Success -> {
@@ -373,6 +380,10 @@ fun SettingsScreen() {
                                         }
                                         is ExportResult.Failure -> {
                                             exportPositionsMessage = "导出失败：${result.error}"
+                                            exportPositionsError = true
+                                        }
+                                        else -> {
+                                            exportPositionsMessage = "导出失败：服务未初始化"
                                             exportPositionsError = true
                                         }
                                     }
@@ -430,11 +441,11 @@ fun SettingsScreen() {
                     }
                 }
                 SettingsRow(
-                    icon = Icons.Default.CloudUpload,
+                    icon = Icons.Default.Add,
                     title = "自动备份管理",
                     subtitle = "查看备份文件、手动备份或恢复数据",
                     onClick = {
-                        backupList = backupManager.getBackupList()
+                        backupList = currentBackupManager?.getBackupList() ?: emptyList()
                         showBackupSheet = true
                     }
                 )
@@ -464,8 +475,51 @@ fun SettingsScreen() {
 
             SectionHeader(title = "关于")
             GlassCard(contentPadding = PaddingValues(0.dp)) {
-                InfoRow(label = "版本", value = "v1.0")
-                InfoRow(label = "开发者", value = "自动记账助手")
+                InfoRow(label = "版本", value = "v${BuildConfig.VERSION_NAME}")
+                InfoRow(label = "开发者", value = "sadrass")
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            GlassCard(contentPadding = PaddingValues(0.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://github.com/sadrass05/")
+                            )
+                            context.startActivity(intent)
+                        }
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "GitHub",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "GitHub · sadrass05",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -476,8 +530,18 @@ fun SettingsScreen() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "Made with ❤️ by sadrass",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
                     .padding(bottom = 32.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -527,7 +591,7 @@ fun SettingsScreen() {
                         value = serverIp,
                         onValueChange = {
                             serverIp = it
-                            syncPrefs.serverIp = it
+                            currentSyncPrefs?.serverIp = it
                         },
                         label = { Text("IP地址") },
                         placeholder = { Text("例如: 192.168.1.100") },
@@ -540,7 +604,7 @@ fun SettingsScreen() {
                             serverPortText = it
                             val port = it.toIntOrNull()
                             if (port != null && port in 1..65535) {
-                                syncPrefs.serverPort = port
+                                currentSyncPrefs?.serverPort = port
                             }
                         },
                         label = { Text("端口") },
@@ -558,7 +622,7 @@ fun SettingsScreen() {
                         pingSuccess = null
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
-                                syncService.ping(serverIp, syncPrefs.serverPort)
+                                currentSyncService?.ping(serverIp, currentSyncPrefs?.serverPort ?: 5000)
                             }
                             withContext(Dispatchers.Main) {
                                 isPinging = false
@@ -603,11 +667,11 @@ fun SettingsScreen() {
                         diagnosticsSteps = emptyList()
                         scope.launch {
                             val steps = withContext(Dispatchers.IO) {
-                                syncService.runDiagnostics(serverIp, syncPrefs.serverPort)
+                                currentSyncService?.runDiagnostics(serverIp, currentSyncPrefs?.serverPort ?: 5000)
                             }
                             withContext(Dispatchers.Main) {
                                 isDiagnosing = false
-                                diagnosticsSteps = steps
+                                diagnosticsSteps = steps ?: emptyList()
                             }
                         }
                     },
@@ -667,9 +731,9 @@ fun SettingsScreen() {
                             syncMessage = ""
                             scope.launch {
                                 val result = withContext(Dispatchers.IO) {
-                                    syncService.fullSync(
+                                    currentSyncService?.fullSync(
                                         ip = serverIp,
-                                        port = syncPrefs.serverPort,
+                                        port = currentSyncPrefs?.serverPort ?: 5000,
                                         expenses = viewModel.expenses.value.filter { !it.isDeleted },
                                         positions = if (BuildConfig.IS_PRO) viewModel.positions.value else emptyList(),
                                         onProgress = { msg ->
@@ -681,8 +745,8 @@ fun SettingsScreen() {
                                 }
                                 withContext(Dispatchers.Main) {
                                     isSyncing = false
-                                    syncMessage = result.message
-                                    syncSuccess = result.success
+                                    syncMessage = result?.message ?: "同步失败"
+                                    syncSuccess = result?.success ?: false
                                 }
                             }
                         },
@@ -697,9 +761,9 @@ fun SettingsScreen() {
                             syncMessage = ""
                             scope.launch {
                                 val result = withContext(Dispatchers.IO) {
-                                    syncService.incrementalSync(
+                                    currentSyncService?.incrementalSync(
                                         ip = serverIp,
-                                        port = syncPrefs.serverPort,
+                                        port = currentSyncPrefs?.serverPort ?: 5000,
                                         expenses = viewModel.expenses.value.filter { !it.isDeleted },
                                         positions = if (BuildConfig.IS_PRO) viewModel.positions.value else emptyList(),
                                         onProgress = { msg ->
@@ -711,8 +775,8 @@ fun SettingsScreen() {
                                 }
                                 withContext(Dispatchers.Main) {
                                     isSyncing = false
-                                    syncMessage = result.message
-                                    syncSuccess = result.success
+                                    syncMessage = result?.message ?: "同步失败"
+                                    syncSuccess = result?.success ?: false
                                 }
                             }
                         },
@@ -816,8 +880,8 @@ fun SettingsScreen() {
                             }
                             OutlinedButton(
                                 onClick = {
-                                    backupManager.deleteBackup(backup.file)
-                                    backupList = backupManager.getBackupList()
+                                    currentBackupManager?.deleteBackup(backup.file)
+                                    backupList = currentBackupManager?.getBackupList() ?: emptyList()
                                 },
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.error
@@ -851,17 +915,20 @@ fun SettingsScreen() {
                         backupMessage = ""
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
-                                backupManager.performManualBackup()
+                                currentBackupManager?.performManualBackup()
                             }
                             withContext(Dispatchers.Main) {
                                 isBackingUp = false
                                 when (result) {
                                     is BackupResult.Success -> {
                                         backupMessage = "备份成功：${result.fileName}（${result.count}条记录）"
-                                        backupList = backupManager.getBackupList()
+                                        backupList = currentBackupManager?.getBackupList() ?: emptyList()
                                     }
                                     is BackupResult.Failure -> {
                                         backupMessage = "备份失败：${result.error}"
+                                    }
+                                    else -> {
+                                        backupMessage = "备份失败：服务未初始化"
                                     }
                                 }
                             }
@@ -885,7 +952,7 @@ fun SettingsScreen() {
                     text = "每周自动备份一次，保留最近两周的备份数据",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -906,9 +973,16 @@ fun SettingsScreen() {
                         restoreTargetFile = null
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
-                                backupManager.restoreFromBackup(file)
+                                currentBackupManager?.restoreFromBackup(file)
                             }
                             withContext(Dispatchers.Main) {
+                                if (result == null) {
+                                    Toast.makeText(
+                                        context,
+                                        "恢复失败：备份服务未初始化",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                                 restoreResult = result
                             }
                         }
@@ -966,7 +1040,7 @@ fun SettingsScreen() {
                             val startOfToday = calendar.timeInMillis
                             val endOfToday = startOfToday + 24 * 60 * 60 * 1000 - 1
                             val deleted = withContext(Dispatchers.IO) {
-                                expenseRepository.deleteImportedDataOnDay(startOfToday, endOfToday)
+                                currentExpenseRepository?.deleteImportedDataOnDay(startOfToday, endOfToday)
                             }
                             withContext(Dispatchers.Main) {
                                 Toast.makeText(
@@ -1053,7 +1127,11 @@ fun SettingsRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
+                )
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1089,42 +1167,6 @@ fun SettingsRow(
             modifier = Modifier.padding(horizontal = 16.dp)
         )
     }
-}
-
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface SyncPrefsEntryPoint {
-    fun syncPrefs(): SyncPrefs
-}
-
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface SyncServiceEntryPoint {
-    fun syncService(): SyncService
-}
-
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface CsvExporterEntryPoint {
-    fun csvExporter(): CsvExporter
-}
-
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface ImportManagerEntryPoint {
-    fun importManager(): ImportManager
-}
-
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface ExpenseRepoEntryPoint {
-    fun expenseRepository(): ExpenseRepository
-}
-
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface BackupManagerEntryPoint {
-    fun backupManager(): BackupManager
 }
 
 @Composable

@@ -63,6 +63,8 @@ class ImportManager @Inject constructor(
         val dataLines = lines.drop(1)
         val errors = mutableListOf<String>()
         var success = 0
+        var skip = 0
+        val importTime = System.currentTimeMillis()
         dataLines.forEachIndexed { index, line ->
             runCatching {
                 val cols = parseCsvLine(line)
@@ -85,11 +87,12 @@ class ImportManager @Inject constructor(
                         ?.ifBlank { "未分类" } ?: "未分类",
                     isFinanceExpense = cols.getOrNull(6)?.trim()?.replace("\"", "")?.contains("是") == true,
                     recordedAt = parseDateTime(cols[0]),
-                    notificationId = "import_csv_${System.currentTimeMillis()}_${index + 2}"
+                    notificationId = "import_csv_${importTime}_${index + 2}",
+                    importedAt = importTime
                 )
                 if (record.merchant.isNotBlank() && record.amount > 0) {
-                    expenseRepository.insertExpense(record)
-                    success++
+                    val inserted = expenseRepository.insertExpenseWithDedup(record)
+                    if (inserted) success++ else skip++
                 } else {
                     errors.add("第${index + 2}行：商户名称为空或金额无效")
                 }
@@ -97,13 +100,15 @@ class ImportManager @Inject constructor(
                 errors.add("第${index + 2}行：${it.message}")
             }
         }
-        return ImportResult(successCount = success, errorCount = errors.size, errors = errors)
+        return ImportResult(successCount = success, skipCount = skip, errorCount = errors.size, errors = errors)
     }
 
     private suspend fun importExpensesTxt(content: String): ImportResult {
         val blocks = content.split(Regex("\\n\\s*\\n"))
         val errors = mutableListOf<String>()
         var success = 0
+        var skip = 0
+        val importTime = System.currentTimeMillis()
         blocks.forEachIndexed { blockIndex, block ->
             if (block.isBlank()) return@forEachIndexed
             runCatching {
@@ -128,11 +133,12 @@ class ImportManager @Inject constructor(
                         ?.ifBlank { "未分类" } ?: "未分类",
                     isFinanceExpense = (map["是否理财支出"] ?: "").contains("是"),
                     recordedAt = parseDateTime(map["日期时间"] ?: map["日期"] ?: ""),
-                    notificationId = "import_txt_${System.currentTimeMillis()}_$blockIndex"
+                    notificationId = "import_txt_${importTime}_$blockIndex",
+                    importedAt = importTime
                 )
                 if (record.merchant.isNotBlank() && record.amount > 0) {
-                    expenseRepository.insertExpense(record)
-                    success++
+                    val inserted = expenseRepository.insertExpenseWithDedup(record)
+                    if (inserted) success++ else skip++
                 } else {
                     errors.add("第${blockIndex + 1}块：商户名称为空或金额无效")
                 }
@@ -140,7 +146,7 @@ class ImportManager @Inject constructor(
                 errors.add("第${blockIndex + 1}块：${it.message}")
             }
         }
-        return ImportResult(successCount = success, errorCount = errors.size, errors = errors)
+        return ImportResult(successCount = success, skipCount = skip, errorCount = errors.size, errors = errors)
     }
 
     private suspend fun importFinanceCsv(uri: Uri): ImportResult {

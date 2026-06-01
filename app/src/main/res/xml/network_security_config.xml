@@ -25,5 +25,6 @@
         <domain includeSubdomains="true">172.29.*</domain>
         <domain includeSubdomains="true">172.30.*</domain>
         <domain includeSubdomains="true">172.31.*</domain>
+        <domain includeSubdomains="true">100.*</domain>
     </domain-config>
 </network-security-config>

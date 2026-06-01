@@ -126,14 +126,12 @@
 -dontwarn androidx.datastore.**
 
 # =============================================
-# Release 包自动移除所有 Log 调用
+# Release 包日志策略：仅移除 verbose 日志，保留 debug/info/warn 用于排查
 # =============================================
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);
     public static int v(...);
-    public static int d(...);
-    public static int i(...);
-    public static int w(...);
+    # 保留 d()/i()/w()/e() — 通知监听等关键功能需要通过日志排查问题
 }
 
 # =============================================

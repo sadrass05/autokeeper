@@ -1,4 +1,4 @@
-﻿package com.example.autobookkeeper.ui.screen
+package com.example.autobookkeeper.ui.screen
 
 import android.content.Context
 import android.net.Uri
@@ -172,24 +172,27 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            Text(
+                text = "理财",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)
+            )
+        }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .statusBarsPadding()
                     .padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(
                     bottom = navBarHeight + 140.dp
                 ),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
             item {
                 GlassCard(contentPadding = PaddingValues(0.dp)) {
                     Column {

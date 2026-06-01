@@ -16,5 +16,6 @@ data class ExpenseRecord(
     val recordedAt: Long,
     var notificationId: String,
     val isDeleted: Boolean = false,
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val importedAt: Long = 0
 )

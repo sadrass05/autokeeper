@@ -91,7 +91,7 @@ import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.ExperimentalFoundationApi
 
-private val platformOptions = listOf("全部", "微信", "支付宝", "拼多多")
+private val platformOptions = listOf("全部", "微信", "支付宝", "拼多多", "云闪付", "美团", "京东")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -401,7 +401,7 @@ private fun AddExpenseSheet(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
-    val platformOptions = listOf("微信", "支付宝", "拼多多", "其他")
+    val platformOptions = listOf("微信", "支付宝", "拼多多", "云闪付", "美团", "京东", "其他")
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

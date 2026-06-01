@@ -33,6 +33,10 @@ class ExpenseRepository @Inject constructor(
         return expenseDao.getTotalExpenseByMonth(startTime, endTime) ?: 0.0
     }
 
+    suspend fun getTotalExpenseByMonthIncludingFinance(start: Long, end: Long): Double {
+        return expenseDao.getTotalExpenseByMonthIncludingFinance(start, end) ?: 0.0
+    }
+
     suspend fun getTotalExpenseByDay(startTime: Long, endTime: Long): Double? {
         return expenseDao.getTotalExpenseByDay(startTime, endTime)
     }
@@ -61,6 +65,22 @@ class ExpenseRepository @Inject constructor(
         if (!existsByNotificationId(expense.notificationId)) {
             expenseDao.insert(expense)
         }
+    }
+
+    suspend fun insertExpenseWithDedup(expense: ExpenseRecord): Boolean {
+        if (existsByNotificationId(expense.notificationId)) {
+            return false
+        }
+        val duplicateCount = expenseDao.countDuplicates(expense.merchant, expense.amount, expense.recordedAt)
+        if (duplicateCount > 0) {
+            return false
+        }
+        expenseDao.insert(expense)
+        return true
+    }
+
+    suspend fun insertExpensesBatch(expenses: List<ExpenseRecord>) {
+        expenseDao.insertAll(expenses)
     }
 
     suspend fun updateExpense(expense: ExpenseRecord) {

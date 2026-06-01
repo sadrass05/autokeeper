@@ -7,6 +7,36 @@
 
 ---
 
+## ⬇️ 下载安装
+
+[![Download Standard](https://img.shields.io/badge/Download-Standard%E7%89%88-green?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/latest)
+[![Download Pro](https://img.shields.io/badge/Download-Pro%E7%89%88-blue?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/latest)
+
+> 💡 **不知道选哪个？** 往下看版本对比 👇
+
+### 📊 版本对比
+
+| 功能 | Standard 版 | Pro 版 |
+|------:|:----------:|:------:|
+| 🔔 通知监听自动记账 | ✅ | ✅ |
+| 📊 支出趋势图表 | ✅ | ✅ |
+| 🥧 分类饼图 | ✅ | ✅ |
+| 📤 CSV 导入导出 | ✅ | ✅ |
+| 💾 每周自动备份 | ✅ | ✅ |
+| 🌙 深色/浅色主题 | ✅ | ✅ |
+| ✅ 数据一致性校验 | ✅ | ✅ |
+| 🗑️ 软删除回收站 | ✅ | ✅ |
+| 💹 理财持仓管理 | ❌ | ✅ |
+| 📈 收益排行榜 | ❌ | ✅ |
+| 🗄️ MySQL 数据同步 | ❌ | ✅ |
+| 📤 理财数据导出 | ❌ | ✅ |
+
+> 📌 **Standard 版**：完全独立，无 Pro 残留代码，导入的理财数据自动转为普通支出记录，统计数据完整包含所有交易。适合只需要**自动记账 + 基础统计**的用户。
+>
+> 💎 **Pro 版**：在 Standard 全部功能基础上增加**理财模块**，支持基金/股票/定期存款持仓跟踪、收益排行、MySQL 局域网同步。适合有**投资理财管理**需求的用户。
+
+---
+
 ## ✨ 为什么做这个
 
 说实话，我是个**很懒的人**。
@@ -75,14 +105,18 @@
 
 ### 安装
 
-直接安装 APK：
+👆 **直接下载 APK** —— 点击页面顶部的 [⬇️ 下载安装](#-下载安装) 按钮，选择 Standard 版或 Pro 版即可。
+
+从源码编译：
 
 ```bash
 # Standard 版本（基础记账）
-app/build/outputs/apk/standard/release/app-standard-release.apk
+./gradlew assembleStandardRelease
+# 输出: app/build/outputs/apk/standard/release/app-standard-release.apk
 
 # Pro 版本（完整功能）
-app/build/outputs/apk/pro/release/app-pro-release.apk
+./gradlew assembleProRelease
+# 输出: app/build/outputs/apk/pro/release/app-pro-release.apk
 ```
 
 或通过 Android Studio 打开项目，选择 `standardDebug` / `proDebug` 变体运行。

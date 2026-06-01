@@ -165,20 +165,24 @@ class BackupManager @Inject constructor(
     suspend fun restoreFromBackup(backupFile: File): RestoreResult = withContext(Dispatchers.IO) {
         return@withContext try {
             val backupData = parseCsvToExpenses(backupFile)
-            val backupDate = parseBackupDate(backupFile.name)
+            if (backupData.isEmpty()) return@withContext RestoreResult.Success(0)
 
-            val existingIds = expenseRepository.getExpensesBeforeTime(backupDate).first()
-                .map { it.id }.toSet()
+            val existingRecords = expenseRepository.getExpensesBeforeTime(
+                System.currentTimeMillis()
+            ).first()
 
-            var restored = 0
-            backupData.forEach { expense ->
-                if (!existingIds.contains(expense.id)) {
-                    expenseRepository.insertExpense(expense)
-                    restored++
-                }
+            val existingSignatures = existingRecords
+                .associateBy { buildSignature(it) }
+
+            val toInsert = backupData.filter { record ->
+                !existingSignatures.containsKey(buildSignature(record))
             }
 
-            RestoreResult.Success(restored)
+            if (toInsert.isNotEmpty()) {
+                expenseRepository.insertExpensesBatch(toInsert)
+            }
+
+            RestoreResult.Success(toInsert.size)
         } catch (e: Exception) {
             e.printStackTrace()
             RestoreResult.Failure(e.message ?: "恢复失败")
@@ -207,7 +211,7 @@ class BackupManager @Inject constructor(
     private fun parseCsvToExpenses(file: File): List<ExpenseRecord> {
         return try {
             val lines = file.readText(Charsets.UTF_8).lines().drop(1).filter { it.isNotBlank() }
-            lines.mapNotNull { line ->
+            lines.mapIndexedNotNull { index, line ->
                 runCatching {
                     val cols = line.split(",").map { it.trim().removeSurrounding("\"") }
                     if (cols.size >= 7) {
@@ -219,7 +223,7 @@ class BackupManager @Inject constructor(
                             category = cols[5].ifBlank { "未分类" },
                             isFinanceExpense = cols[6].contains("是"),
                             recordedAt = parseDateTime(cols[0]),
-                            notificationId = "restored_${System.currentTimeMillis()}",
+                            notificationId = "restored_${System.nanoTime()}_$index",
                             isDeleted = false,
                             deletedAt = null
                         )
@@ -250,5 +254,11 @@ class BackupManager @Inject constructor(
             }
         }
         return System.currentTimeMillis()
+    }
+
+    private fun buildSignature(record: ExpenseRecord): String {
+        val normalizedAmount = "%.2f".format(record.amount)
+        val normalizedTime = (record.recordedAt / 60000) * 60000
+        return "${record.merchant}|$normalizedAmount|$normalizedTime"
     }
 }

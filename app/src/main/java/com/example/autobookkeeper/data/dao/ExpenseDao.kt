@@ -3,6 +3,7 @@ package com.example.autobookkeeper.data.dao
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.example.autobookkeeper.data.entity.ExpenseRecord
@@ -32,6 +33,9 @@ interface ExpenseDao {
     @Query("SELECT SUM(amount) FROM expenses WHERE isFinanceExpense = false AND isDeleted = 0 AND recordedAt >= :startTime AND recordedAt <= :endTime")
     suspend fun getTotalExpenseByMonth(startTime: Long, endTime: Long): Double?
 
+    @Query("SELECT SUM(amount) FROM expenses WHERE isDeleted = 0 AND recordedAt >= :startTime AND recordedAt <= :endTime")
+    suspend fun getTotalExpenseByMonthIncludingFinance(startTime: Long, endTime: Long): Double?
+
     @Query("SELECT SUM(amount) FROM expenses WHERE isFinanceExpense = false AND isDeleted = 0 AND recordedAt >= :startTime AND recordedAt <= :endTime")
     suspend fun getTotalExpenseByDay(startTime: Long, endTime: Long): Double?
 
@@ -50,8 +54,11 @@ interface ExpenseDao {
     @Query("SELECT COUNT(*) FROM expenses WHERE notificationId = :notificationId")
     suspend fun existsByNotificationId(notificationId: String): Int
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(expense: ExpenseRecord): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(expenses: List<ExpenseRecord>)
 
     @Update
     suspend fun update(expense: ExpenseRecord)
@@ -92,16 +99,18 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE isDeleted = 0 ORDER BY recordedAt DESC")
     suspend fun getAllExpensesList(): List<ExpenseRecord>
 
-    @Query("""
-        DELETE FROM expenses
-        WHERE recordedAt >= :startOfDay
-        AND recordedAt <= :endOfDay
-        AND (notificationId LIKE 'import_%'
+    @Query("""DELETE FROM expenses WHERE importedAt > 0
+        AND importedAt >= :startOfDay AND importedAt <= :endOfDay
+        AND (notificationId LIKE 'import_csv_%'
+             OR notificationId LIKE 'import_txt_%'
              OR notificationId LIKE 'manual_%'
+             OR notificationId LIKE 'restored_%'
              OR notificationId = '')
-        AND isDeleted = 0
-    """)
+        AND isDeleted = 0""")
     suspend fun deleteImportedDataOnDay(startOfDay: Long, endOfDay: Long): Int
+
+    @Query("SELECT COUNT(*) FROM expenses WHERE merchant = :merchant AND amount = :amount AND ABS(recordedAt - :recordedAt) <= 5000 AND isDeleted = 0")
+    suspend fun countDuplicates(merchant: String, amount: Double, recordedAt: Long): Int
 }
 
 data class CategoryStat(val category: String, val total: Double)

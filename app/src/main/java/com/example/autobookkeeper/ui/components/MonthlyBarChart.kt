@@ -236,7 +236,7 @@ fun MonthlyBarChart(
             }
 
             val entries = data.mapIndexed { index, item ->
-                BarEntry(index.toFloat(), item.amount, item)
+                BarEntry(index.toFloat(), item.amount.toFloat(), item)
             }
 
             val dataSet = BarDataSet(entries, "").apply {

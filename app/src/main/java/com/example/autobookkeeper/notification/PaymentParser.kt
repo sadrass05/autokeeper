@@ -9,37 +9,52 @@ class PaymentParser @Inject constructor() {
     private val wechatPackage = "com.tencent.mm"
     private val alipayPackage = "com.eg.android.AlipayGphone"
     private val pinduoduoPackage = "com.xunmeng.pinduoduo"
+    private val unionPayPackage = "com.unionpay"
+    private val meituanPackage = "com.sankuai.meituan"
+    private val jdPackage = "com.jingdong.app.mall"
 
-    private val paymentKeywords = listOf("支付", "付款", "消费", "扣费", "扣款", "交易", "买单", "缴费")
+    private val cmbPackage = "cmb.pb"
+    private val icbcPackage = "com.icbc"
+    private val bocPackage = "com.chinamworld.boc"
+    private val ccbPackage = "com.chinamworld.ccb"
+    private val abcPackage = "com.android.bankabc"
+
+    private val douyinPackage = "com.ss.android.ugc.aweme"
+    private val kuaishouPackage = "com.smile.gifmaker"
+    private val didiPackage = "com.sdu.didi.psnger"
+
+    private val knownPackages = setOf(
+        wechatPackage, alipayPackage, pinduoduoPackage, unionPayPackage, meituanPackage, jdPackage,
+        cmbPackage, icbcPackage, bocPackage, ccbPackage, abcPackage,
+        douyinPackage, kuaishouPackage, didiPackage
+    )
+
+    private val paymentKeywords = listOf(
+        "支付", "付款", "消费", "扣费", "扣款", "交易", "买单", "缴费", "花费", "结算", "转账", "还款"
+    )
 
     private val amountPatterns = listOf(
-        "¥\\s*([0-9]+\\.?[0-9]*)".toRegex(),
-        "￥\\s*([0-9]+\\.?[0-9]*)".toRegex(),
-        "([0-9]+\\.?[0-9]*)\\s*元".toRegex()
+        "¥\\s*([0-9,]+\\.?[0-9]*)".toRegex(),
+        "￥\\s*([0-9,]+\\.?[0-9]*)".toRegex(),
+        "([0-9,]+\\.?[0-9]*)\\s*元".toRegex()
     )
 
-    // ========== 黑名单关键词 ==========
-    // 包含以下词的通知直接忽略（统计/广告/收入类）
     private val blacklistKeywords = listOf(
-        // 统计类（非真实交易）
         "本周支付", "本月支付", "本周消费", "本月消费",
-        "支付统计", "消费统计", "账单统计", "消费报告",
+        "支付统计", "消费统计", "账单统计", "消费报告", "账单推送",
         "近7天", "近30天", "累计消费", "共消费",
-
-        // 广告推送类
-        "限时优惠", "满减", "折扣", "红包", "优惠券",
-        "省了", "立减", "特惠", "活动", "推荐",
-
-        // 收入类（不应记录为支出）
-        "到账", "收款成功", "转入", "退款", "退钱",
-        "红包到账", "收到", "入账", "充值成功",
-        "工资", "奖金", "报销"
+        "月度账单", "年度账单", "账单查询",
+        "额度提醒", "额度恢复", "可用额度",
+        "限时优惠", "满减", "折扣", "优惠券",
+        "积分兑换", "积分变动",
+        "收款成功", "红包到账", "充值成功",
+        "工资", "奖金", "报销", "理赔", "补偿金"
     )
 
-    // ========== 收入判断白名单 ==========
-    // 包含以下词时判定为收入消息，跳过记录
     private val incomeKeywords = listOf(
-        "到账", "收款", "转入", "退款", "退还", "入账"
+        "到账", "收款", "转入", "退款", "退还", "入账",
+        "红包", "返现", "补贴", "提现", "理赔", "补偿金",
+        "工资到账", "奖金", "报销到账"
     )
 
     /**
@@ -91,40 +106,85 @@ class PaymentParser @Inject constructor() {
      */
     fun isPaymentNotification(packageName: String, title: String, text: String): Boolean {
         val combined = "$title $text"
+        val TAG = "PaymentParser"
 
-        // 第一步：黑名单过滤（最高优先级）
+        Log.d(TAG, "🔍 判断: pkg=$packageName, title=$title")
+
         if (isBlacklisted(title, text)) {
-            Log.d("PaymentParser", "被黑名单过滤: title=$title, content=$text")
+            Log.d(TAG, "❌ [黑名单] $title")
             return false
         }
 
-        // 第二步：收入过滤
-        if (isIncomeNotification(combined)) {
-            Log.d("PaymentParser", "识别为收入通知，跳过: $combined")
+        if (!knownPackages.contains(packageName)) {
+            Log.d(TAG, "⏭ [跳过] 不支持的包名: $packageName")
             return false
         }
 
-        // 第三步：微信特殊处理
-        // 微信的通知格式特殊，有很多非交易类的"微信支付"标题通知
         if (packageName == wechatPackage) {
-            // 过滤微信统计/汇总类通知
             val isWechatSummary = text.contains("笔交易") ||
                     text.contains("统计") ||
                     text.contains("共消费") ||
                     (title == "微信支付" && !text.contains("付款") && !text.contains("支付"))
             if (isWechatSummary) {
-                Log.d("PaymentParser", "微信汇总通知被过滤: title=$title")
+                Log.d(TAG, "❌ [微信汇总] $title")
                 return false
             }
+            val hasAmount = amountPatterns.any { it.containsMatchIn(combined) }
+            if (!hasAmount) {
+                Log.d(TAG, "❌ [微信] 无金额")
+                return false
+            }
+            Log.d(TAG, "✅ [微信] 支付通知")
+            return true
         }
 
-        // 第四步：基本条件检查（必须有金额 + 支付关键词）
+        if (isIncomeNotification(combined)) {
+            Log.d(TAG, "❌ [收入通知] $combined")
+            return false
+        }
+
         val hasAmount = amountPatterns.any { it.containsMatchIn(combined) }
         val hasPaymentKeyword = paymentKeywords.any { combined.contains(it) }
 
+        Log.d(TAG, "📊 金额=$hasAmount, 关键词=$hasPaymentKeyword")
+
+        if (!hasAmount) {
+            Log.d(TAG, "❌ [${packageName}] 无金额")
+            return false
+        }
+
         return when (packageName) {
-            wechatPackage, alipayPackage, pinduoduoPackage -> hasAmount && hasPaymentKeyword
-            else -> false
+            alipayPackage -> {
+                val hasAlipayContext = combined.contains("付款") ||
+                    combined.contains("消费") || combined.contains("转账") ||
+                    combined.contains("扣款") || combined.contains("还款") ||
+                    combined.contains("缴费") || combined.contains("买单") ||
+                    combined.contains("支付") || combined.contains("交易")
+                if (!hasAlipayContext && !hasPaymentKeyword) {
+                    Log.d(TAG, "❌ [支付宝] 有金额无支付上下文")
+                    return false
+                }
+                Log.d(TAG, "✅ [支付宝] 支付通知")
+                true
+            }
+            pinduoduoPackage, unionPayPackage, meituanPackage, jdPackage,
+            cmbPackage, icbcPackage, bocPackage, ccbPackage, abcPackage,
+            douyinPackage, kuaishouPackage, didiPackage -> {
+                if (!hasPaymentKeyword) {
+                    Log.d(TAG, "❌ [${packageName}] 无支付关键词")
+                    return false
+                }
+                Log.d(TAG, "✅ [${packageName}] 支付通知")
+                true
+            }
+            else -> {
+                if (!hasPaymentKeyword) {
+                    Log.d(TAG, "❌ [${packageName}] 无支付关键词")
+                    return false
+                }
+                Log.d(TAG, "✅ [${packageName}] 支付通知(泛)")
+                true
+            }
         }
     }
 
@@ -164,17 +224,18 @@ class PaymentParser @Inject constructor() {
             wechatPackage -> "微信"
             alipayPackage -> "支付宝"
             pinduoduoPackage -> "拼多多"
+            unionPayPackage -> "云闪付"
+            meituanPackage -> "美团"
+            jdPackage -> "京东"
+            cmbPackage -> "招商银行"
+            icbcPackage -> "工商银行"
+            bocPackage -> "中国银行"
+            ccbPackage -> "建设银行"
+            abcPackage -> "农业银行"
+            douyinPackage -> "抖音"
+            kuaishouPackage -> "快手"
+            didiPackage -> "滴滴"
             else -> return null
-        }
-
-        // 微信额外验证：确保能提取到商户信息
-        // 微信很多通知只有金额没有商户名，这类通常是汇总或广告
-        if (packageName == wechatPackage) {
-            val merchant = extractMerchant(combined, title, platform)
-            if (merchant == "未知商户") {
-                Log.d("PaymentParser", "微信通知无法提取商户信息，跳过")
-                return null
-            }
         }
 
         val merchant = extractMerchant(combined, title, platform)
@@ -193,7 +254,9 @@ class PaymentParser @Inject constructor() {
     private fun extractAmount(text: String): Double? {
         for (pattern in amountPatterns) {
             val match = pattern.find(text)
-            val amount = match?.groupValues?.get(1)?.toDoubleOrNull()
+            val raw = match?.groupValues?.get(1) ?: continue
+            val cleaned = raw.replace(",", "")
+            val amount = cleaned.toDoubleOrNull()
             if (amount != null && amount > 0) return amount
         }
         return null
@@ -211,9 +274,12 @@ class PaymentParser @Inject constructor() {
      */
     private fun extractMerchant(text: String, title: String, platform: String): String {
         val merchantPatterns = listOf(
-            "向\\s*(.+?)\\s*(支付|付款|消费|缴费)".toRegex(),
+            "向\\s*(.+?)\\s*(支付|付款|消费|缴费|转账)".toRegex(),
             "(.+?)\\s*(收款|商户)".toRegex(),
-            "在\\s*(.+?)\\s*(消费|支付|付款)".toRegex(),
+            "在\\s*(.+?)\\s*(消费|支付|付款|转账)".toRegex(),
+            "已向\\s*(.+?)\\s*(转账|付款|汇款)".toRegex(),
+            "你已向\\s*(.+?)\\s*转".toRegex(),
+            "信用卡(.+?)还款".toRegex(),
             "(.+?)\\s*通过".toRegex()
         )
 
@@ -234,6 +300,9 @@ class PaymentParser @Inject constructor() {
 
         return when (platform) {
             "拼多多" -> "拼多多"
+            "云闪付" -> "云闪付商户"
+            "美团" -> "美团商户"
+            "京东" -> "京东商户"
             else -> "未知商户"
         }
     }

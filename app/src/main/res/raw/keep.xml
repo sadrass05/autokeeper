@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <tools:keep="@drawable/ic_home,@drawable/ic_home_filled"/>
+    <tools:keep "@drawable/ic_records,@drawable/ic_records_filled"/>
+    <tools:keep "@drawable/ic_finance,@drawable/ic_finance_filled"/>
+    <tools:keep "@drawable/ic_settings,@drawable/ic_settings_filled"/>
+</resources>

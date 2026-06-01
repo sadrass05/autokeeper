@@ -31,7 +31,7 @@ import java.util.Date
 import java.util.Locale
 
 data class DailyExpense(val date: String, val amount: Float)
-data class MonthlyExpense(val year: Int, val month: Int, val amount: Float, val label: String)
+data class MonthlyExpense(val year: Int, val month: Int, val amount: Double, val label: String)
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -108,28 +108,24 @@ class MainViewModel @Inject constructor(
     init {
         loadData()
         initCategories()
-        calculateDailyExpense()
-        loadTrendData()
-        loadMonthlyStats()
-        loadTodayCategoryData()
 
-        // 仅 Pro 版加载理财数据
         if (BuildConfig.IS_PRO) {
             loadFinanceExpenses()
         }
 
         cleanExpiredTrash()
         loadDeletedExpenses()
+
+        calculateNetFinanceProfit()
     }
 
     private fun loadData() {
         viewModelScope.launch {
             expenseRepository.getAllExpenses().collect {
                 _expenses.value = it
-                calculateMonthlyExpense()
                 calculateDailyExpense()
                 loadTrendData()
-                loadMonthlyStats()
+                loadAllMonthlyData()
                 loadTodayCategoryData()
             }
         }
@@ -177,20 +173,40 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun calculateMonthlyExpense() {
+    private fun loadAllMonthlyData() {
         viewModelScope.launch {
             val calendar = Calendar.getInstance()
             calendar.set(Calendar.DAY_OF_MONTH, 1)
             calendar.set(Calendar.HOUR_OF_DAY, 0)
             calendar.set(Calendar.MINUTE, 0)
             calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
             val startOfMonth = calendar.timeInMillis
 
             calendar.add(Calendar.MONTH, 1)
-            calendar.add(Calendar.MILLISECOND, -1)
-            val endOfMonth = calendar.timeInMillis
+            val endOfMonth = calendar.timeInMillis - 1
 
-            _monthlyExpense.value = expenseRepository.getTotalExpenseByMonth(startOfMonth, endOfMonth)
+            val monthlyTotal = expenseRepository.getTotalExpenseByMonth(startOfMonth, endOfMonth) ?: 0.0
+            _monthlyExpense.value = monthlyTotal
+
+            val statsResult = mutableListOf<MonthlyExpense>()
+            calendar.timeInMillis = startOfMonth
+
+            repeat(6) { i ->
+                val year = calendar.get(Calendar.YEAR)
+                val month = calendar.get(Calendar.MONTH) + 1
+                val statStart = calendar.timeInMillis
+
+                calendar.add(Calendar.MONTH, 1)
+                val statEnd = calendar.timeInMillis - 1
+
+                val amount = expenseRepository.getTotalExpenseByMonthIncludingFinance(statStart, statEnd) ?: 0.0
+                val label = if (i == 0 || month == 1) "${year}\n${month}月" else "${month}月"
+                statsResult.add(0, MonthlyExpense(year, month, amount, label))
+
+                calendar.add(Calendar.MONTH, -2)
+            }
+            _monthlyStats.value = statsResult
         }
     }
 
@@ -286,39 +302,13 @@ class MainViewModel @Inject constructor(
                 endCal.set(Calendar.MILLISECOND, 999)
                 val dayEnd = endCal.timeInMillis
 
-                val amount = expenseRepository.getExpenseForDay(dayStart, dayEnd)
+                val amount = expenseRepository.getExpenseForDay(dayStart, dayEnd) ?: 0.0
                 result.add(DailyExpense(
                     date = dateFormat.format(Date(dayStart)),
                     amount = amount.toFloat()
                 ))
             }
             _trendData.value = result
-        }
-    }
-
-    fun loadMonthlyStats() {
-        viewModelScope.launch {
-            val calendar = Calendar.getInstance()
-            val result = mutableListOf<MonthlyExpense>()
-            repeat(6) { i ->
-                val year = calendar.get(Calendar.YEAR)
-                val month = calendar.get(Calendar.MONTH) + 1
-                val startOfMonth = calendar.apply {
-                    set(Calendar.DAY_OF_MONTH, 1)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
-                calendar.add(Calendar.MONTH, 1)
-                val endOfMonth = calendar.timeInMillis - 1
-                val amount = expenseRepository
-                    .getTotalExpenseByMonth(startOfMonth, endOfMonth).toFloat()
-                val label = if (i == 0 || month == 1) "${year}\n${month}月" else "${month}月"
-                result.add(0, MonthlyExpense(year, month, amount, label))
-                calendar.add(Calendar.MONTH, -2)
-            }
-            _monthlyStats.value = result
         }
     }
 

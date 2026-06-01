@@ -5,6 +5,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.WindowInsets
@@ -98,6 +99,10 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.DisposableEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -202,15 +207,34 @@ fun SettingsScreen() {
                 .verticalScroll(rememberScrollState())
         ) {
             SectionHeader(title = "通知")
+            var notificationEnabled by remember {
+                mutableStateOf(
+                    Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+                        ?.contains(context.packageName) == true
+                )
+            }
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        notificationEnabled = Settings.Secure.getString(
+                            context.contentResolver, "enabled_notification_listeners"
+                        )?.contains(context.packageName) == true
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
             GlassCard(contentPadding = PaddingValues(0.dp)) {
                 SettingsRow(
                     icon = Icons.Default.Notifications,
                     title = "通知权限设置",
-                    subtitle = "开启后自动读取支付通知",
+                    subtitle = if (notificationEnabled) "已启用 - 自动读取支付通知" else "未启用 - 点击开启权限",
                     onClick = {
                         val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
                         context.startActivity(intent)
-                    }
+                    },
+                    subtitleColor = if (!notificationEnabled) Color(0xFFFF6B6B) else null
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -1077,6 +1101,14 @@ fun SettingsScreen() {
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.tertiary
                     )
+                    if (result.skipCount > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "跳过重复: ${result.skipCount} 条",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "失败/跳过: ${result.errorCount} 条",
@@ -1121,7 +1153,8 @@ fun SettingsRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    subtitleColor: Color? = null
 ) {
     Column {
         Row(
@@ -1151,7 +1184,7 @@ fun SettingsRow(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Icon(

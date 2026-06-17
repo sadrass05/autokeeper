@@ -10,7 +10,7 @@
 ## ⬇️ 下载安装
 
 [![Download Standard](https://img.shields.io/badge/Download-Standard%E7%89%88-green?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/latest)
-[![Download Pro](https://img.shields.io/badge/Download-Pro%E7%89%88-blue?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/latest)
+[![Download Pro](https://img.shields.io/badge/Download-Pro%E7%89%88-blue?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/tag/v1.0.0-pro)
 
 > 💡 **不知道选哪个？** 往下看版本对比 👇
 >

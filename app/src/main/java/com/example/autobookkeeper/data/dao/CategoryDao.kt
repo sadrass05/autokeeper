@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.example.autobookkeeper.data.entity.Category
 import kotlinx.coroutines.flow.Flow
@@ -28,4 +29,13 @@ interface CategoryDao {
 
     @Delete
     suspend fun delete(category: Category)
+
+    @Transaction
+    suspend fun initDefaultsIfEmpty(categories: List<Category>) {
+        for (category in categories) {
+            if (getCategoryByName(category.name) == null) {
+                insert(category)
+            }
+        }
+    }
 }

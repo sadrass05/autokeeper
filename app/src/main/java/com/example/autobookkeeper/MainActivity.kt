@@ -25,12 +25,13 @@ import com.example.autobookkeeper.BuildConfig
 import com.example.autobookkeeper.ui.screen.HomeScreen
 import com.example.autobookkeeper.ui.screen.RecordsScreen
 import com.example.autobookkeeper.ui.screen.FinanceScreen
+import com.example.autobookkeeper.ui.screen.NlsHealthDetailScreen
+import com.example.autobookkeeper.ui.screen.RomSetupScreen
 import com.example.autobookkeeper.ui.screen.SettingsScreen
 import com.example.autobookkeeper.ui.theme.AutoBookkeeperTheme
 import com.example.autobookkeeper.ui.theme.ThemePrefs
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -38,14 +39,27 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val initialDarkTheme = runBlocking {
-            ThemePrefs.isDarkTheme(this@MainActivity).first()
+        // 启动时 NLS 健康检查: 如果用户已授权但 NLS 标志位是 false, 主动触发一次 rebind
+        val app = applicationContext as? com.example.autobookkeeper.App
+        if (app != null && app.isNotificationListenerEnabled() && !App.notificationListenerRunning) {
+            android.util.Log.w("MainActivity", "⚠️ 启动时 NLS 失联, 尝试 rebind")
+            val component = android.content.ComponentName(this, com.example.autobookkeeper.notification.NotificationListener::class.java)
+            com.example.autobookkeeper.notification.NlsWatchdogWorker.schedule(applicationContext)
+            // requestRebind 是 NotificationListenerService 的静态方法
+            try {
+                val cls = Class.forName("android.service.notification.NotificationListenerService")
+                val method = cls.getMethod("requestRebind", android.content.ComponentName::class.java)
+                method.invoke(null, component)
+            } catch (e: Throwable) {
+                android.util.Log.e("MainActivity", "启动时 rebind 失败", e)
+            }
         }
 
         setContent {
-            var isDarkTheme by remember { mutableStateOf(initialDarkTheme) }
+            var isDarkTheme by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
+                isDarkTheme = ThemePrefs.isDarkTheme(this@MainActivity).first()
                 ThemePrefs.isDarkTheme(this@MainActivity).collect { dark ->
                     isDarkTheme = dark
                 }
@@ -84,16 +98,38 @@ class MainActivity : ComponentActivity() {
                             Crossfade(targetState = selectedScreen) { screen ->
                                 if (BuildConfig.IS_PRO) {
                                     when (screen) {
-                                        0 -> HomeScreen(onNavigateToRecords = { selectedScreen = 1 })
+                                        0 -> HomeScreen(
+                                            onNavigateToRecords = { selectedScreen = 1 },
+                                            onNavigateToRomSetup = { selectedScreen = 4 },
+                                            onNavigateToSettings = { selectedScreen = 3 }
+                                        )
                                         1 -> RecordsScreen()
                                         2 -> FinanceScreen()
-                                        3 -> SettingsScreen()
+                                        3 -> SettingsScreen(
+                                            onNavigateToNlsDetail = { selectedScreen = 5 }
+                                        )
+                                        4 -> RomSetupScreen(onBack = { selectedScreen = 0 })
+                                        5 -> NlsHealthDetailScreen(
+                                            onBack = { selectedScreen = 3 },
+                                            onNavigateToRomSetup = { selectedScreen = 4 }
+                                        )
                                     }
                                 } else {
                                     when (screen) {
-                                        0 -> HomeScreen(onNavigateToRecords = { selectedScreen = 1 })
+                                        0 -> HomeScreen(
+                                            onNavigateToRecords = { selectedScreen = 1 },
+                                            onNavigateToRomSetup = { selectedScreen = 3 },
+                                            onNavigateToSettings = { selectedScreen = 2 }
+                                        )
                                         1 -> RecordsScreen()
-                                        2 -> SettingsScreen()
+                                        2 -> SettingsScreen(
+                                            onNavigateToNlsDetail = { selectedScreen = 4 }
+                                        )
+                                        3 -> RomSetupScreen(onBack = { selectedScreen = 0 })
+                                        4 -> NlsHealthDetailScreen(
+                                            onBack = { selectedScreen = 2 },
+                                            onNavigateToRomSetup = { selectedScreen = 3 }
+                                        )
                                     }
                                 }
                             }

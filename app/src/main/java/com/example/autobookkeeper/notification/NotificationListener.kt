@@ -1,23 +1,27 @@
 package com.example.autobookkeeper.notification
 
 import android.app.Notification
-import android.os.Handler
-import android.os.Looper
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.service.notification.NotificationListenerService
+import android.service.notification.NotificationListenerService.RankingMap
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import android.widget.Toast
+import androidx.core.app.NotificationCompat
+import com.example.autobookkeeper.App
 import com.example.autobookkeeper.data.repository.ExpenseRepository
-import com.example.autobookkeeper.di.ExpenseRepoEntryPoint
-import dagger.hilt.EntryPoints
+import com.example.autobookkeeper.data.repository.InsertResult
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentLinkedQueue
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class NotificationListener : NotificationListenerService() {
@@ -25,227 +29,203 @@ class NotificationListener : NotificationListenerService() {
     @Inject
     lateinit var expenseRepository: ExpenseRepository
 
-    private val fallbackParser = PaymentParser()
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val parser by lazy { PaymentParser() }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var connectedAt: Long = 0L
 
-    private var lastScanTime: Long = 0
-    private val minScanIntervalMs = 5 * 60 * 1000L
+    @Volatile
+    private var isDestroying: Boolean = false
 
-    private val pendingNotifications = ConcurrentLinkedQueue<StatusBarNotification>()
-    private var retryCount = 0
-    private val maxRetryDelayMs = 5000L
+    override fun onCreate() {
+        super.onCreate()
+        Log.i("AutoBookkeeper", "📌 [NLS] onCreate pid=${android.os.Process.myPid()}")
+    }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        Log.i("AutoBookkeeper", "🔔 通知监听服务已连接")
-        showToast("🔔 通知监听已连接")
-        schedulePendingFlush()
-        scanExistingNotifications()
+        connectedAt = System.currentTimeMillis()
+        startForegroundNotification()
+        App.notificationListenerRunning = true
+        // NLS 恢复时清零所有重启/watchdog 计数 + 取消重启 worker
+        if (App.nlsRestartAttempts > 0 || App.nlsRestartGiveUp) {
+            try {
+                App.clearNlsRestartAttempts()
+                NlsRestartWorker.cancel(applicationContext)
+                Log.i("AutoBookkeeper", "✅ NLS 恢复, 清零重启计数并取消 worker")
+            } catch (e: Throwable) {
+                Log.e("AutoBookkeeper", "清零 NLS 重启计数失败", e)
+            }
+        }
+        Log.i("AutoBookkeeper", "✅ [NLS] onListenerConnected connectedAt=$connectedAt")
+        scope.launch {
+            try {
+                getActiveNotifications()?.let { all ->
+                    val max = 50
+                    val toProcess: List<StatusBarNotification> = if (all.size > max) {
+                        Log.w("AutoBookkeeper", "⚠️ 启动扫描: 通知总数=${all.size}, 截断到 $max")
+                        all.toList().take(max)
+                    } else {
+                        all.toList()
+                    }
+                    Log.i("AutoBookkeeper", "📥 启动扫描: 处理 ${toProcess.size} 条通知")
+                    toProcess.forEach { sbn -> handle(sbn) }
+                }
+            } catch (e: Exception) {
+                Log.e("AutoBookkeeper", "启动扫描失败", e)
+            }
+        }
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
-        Log.w("AutoBookkeeper", "⚠️ 通知监听服务已断开连接")
-    }
-
-    override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        sbn ?: return
-        Log.d("AutoBookkeeper", "📩 收到通知: pkg=${sbn.packageName}, id=${sbn.id}, tag=${sbn.tag}")
-        val repo = getRepo()
-        if (repo == null) {
-            Log.w("AutoBookkeeper", "⚠️ Repository未就绪，暂存通知: ${sbn.packageName}")
-            pendingNotifications.add(sbn)
-            schedulePendingFlush()
-            return
-        }
-        processNotification(sbn, repo)
-    }
-
-    private fun processNotification(sbn: StatusBarNotification, repo: ExpenseRepository? = null) {
-        val notification = sbn.notification
-        if (notification == null) {
-            Log.d("AutoBookkeeper", "⏭ notification为null, pkg=${sbn.packageName}")
-            return
-        }
-        val packageName = sbn.packageName
-        val title = getTitle(notification)
-        val allText = getAllText(notification)
-
-        Log.d("AutoBookkeeper", "📄 title=[$title], textLen=${allText.length}")
-
-        val parser = getParser()
-
-        if (!parser.isPaymentNotification(packageName, title, allText)) return
-
-        val notificationId = "ntf_${packageName}_${sbn.id}_${System.currentTimeMillis()}"
-        val payment = parser.parsePayment(packageName, title, allText, notificationId) ?: return
-
-        serviceScope.launch {
+        val uptime = if (connectedAt > 0) (System.currentTimeMillis() - connectedAt) / 1000 else -1
+        Log.w("AutoBookkeeper", "⚠️ [NLS] onListenerDisconnected uptime=${uptime}s, 尝试重连...")
+        App.notificationListenerRunning = false
+        requestRebind(android.content.ComponentName(this, NotificationListener::class.java))
+        // 主动重建 foreground 状态, 触发系统重连
+        scope.launch {
             try {
-                val r = repo ?: getRepo()
-                if (r != null) {
-                    if (!r.existsByNotificationId(payment.notificationId)) {
-                        r.insertExpense(payment)
-                        Log.i("AutoBookkeeper", "✅ 已记录: ${payment.platform} ${payment.merchant} ¥${payment.amount}")
-                        showToast("💰 ${payment.platform}: ${payment.merchant} ¥${payment.amount}")
-                    } else {
-                        Log.d("AutoBookkeeper", "⏭ 重复通知: ${payment.notificationId}")
-                    }
-                } else {
-                    Log.w("AutoBookkeeper", "⚠️ Repository不可用，保存失败")
-                }
+                stopForeground(STOP_FOREGROUND_DETACH)
+                delay(500)
+                startForegroundNotification()
             } catch (e: Exception) {
-                Log.e("AutoBookkeeper", "保存支付记录失败", e)
+                Log.e("AutoBookkeeper", "重连失败", e)
             }
-        }
-    }
-
-    private fun scanExistingNotifications() {
-        val now = System.currentTimeMillis()
-        if (now - lastScanTime < minScanIntervalMs) {
-            Log.d("AutoBookkeeper", "⏭ 距上次扫描不足5分钟, 跳过")
-            return
-        }
-        lastScanTime = now
-
-        serviceScope.launch {
-            try {
-                val notifications = getActiveNotifications()
-                if (notifications == null || notifications.isEmpty()) {
-                    Log.d("AutoBookkeeper", "📭 通知栏无已有通知")
-                    return@launch
-                }
-                Log.i("AutoBookkeeper", "🔍 扫描 ${notifications.size} 条已有通知")
-                var scanned = 0
-                var recorded = 0
-                var skipped = 0
-                for (sbn in notifications) {
-                    val n = sbn.notification ?: continue
-                    val pkg = sbn.packageName
-                    val title = getTitle(n)
-                    val text = getAllText(n)
-                    val parser = getParser()
-                    if (parser.isPaymentNotification(pkg, title, text)) {
-                        scanned++
-                        val nid = "ntf_scan_${pkg}_${sbn.id}_${System.currentTimeMillis()}"
-                        val payment = parser.parsePayment(pkg, title, text, nid)
-                        if (payment != null) {
-                            val r = getRepo()
-                            if (r != null && !r.existsByNotificationId(payment.notificationId)) {
-                                r.insertExpense(payment)
-                                recorded++
-                                Log.i("AutoBookkeeper", "✅ 扫描: ${payment.platform} ${payment.merchant} ¥${payment.amount}")
-                            } else if (r != null) {
-                                skipped++
-                            }
-                        }
-                    }
-                }
-                Log.i("AutoBookkeeper", "📊 扫描: ${notifications.size}条, 支付$scanned, 录入$recorded, 跳过$skipped")
-                if (recorded > 0) {
-                    showToast("📊 扫描识别 $recorded 条支付记录")
-                }
-            } catch (e: SecurityException) {
-                Log.w("AutoBookkeeper", "⚠️ 扫描失败（权限不足）")
-                showToast("⚠️ 无扫描权限，请授权通知访问")
-            } catch (e: Exception) {
-                Log.w("AutoBookkeeper", "⚠️ 扫描异常", e)
-            }
-        }
-    }
-
-    private fun schedulePendingFlush() {
-        if (pendingNotifications.isEmpty()) return
-        val repo = getRepo()
-        if (repo != null) {
-            flushPendingNotifications(repo)
-        } else {
-            retryCount++
-            val delay = minOf(500L * retryCount, maxRetryDelayMs)
-            Log.d("AutoBookkeeper", "⏳ Repository未就绪, ${delay}ms后重试(第${retryCount}次)")
-            mainHandler.postDelayed({
-                schedulePendingFlush()
-            }, delay)
-        }
-    }
-
-    private fun flushPendingNotifications(repo: ExpenseRepository) {
-        val pending = pendingNotifications.toList()
-        pendingNotifications.clear()
-        if (pending.isEmpty()) return
-        Log.i("AutoBookkeeper", "📬 处理 ${pending.size} 条待处理通知")
-        retryCount = 0
-        pending.forEach { sbn ->
-            processNotification(sbn, repo)
-        }
-    }
-
-    private fun getParser(): PaymentParser = fallbackParser
-
-    private fun getRepo(): ExpenseRepository? {
-        if (::expenseRepository.isInitialized) {
-            return expenseRepository
-        }
-        return try {
-            val entryPoint = EntryPoints.get(applicationContext, ExpenseRepoEntryPoint::class.java)
-            val repo = entryPoint.currentExpenseRepository()
-            Log.i("AutoBookkeeper", "🔧 通过EntryPoints获取ExpenseRepository成功")
-            repo
-        } catch (e: Exception) {
-            Log.w("AutoBookkeeper", "⚠️ EntryPoints获取Repository失败: ${e.message}")
-            null
-        }
-    }
-
-    private fun getTitle(notification: Notification): String {
-        val extras = notification.extras
-        return extras.getString(Notification.EXTRA_TITLE) ?: ""
-    }
-
-    private fun getAllText(notification: Notification): String {
-        val extras = notification.extras
-        val title = extras.getString(Notification.EXTRA_TITLE) ?: ""
-
-        val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
-        val text = extras.getString(Notification.EXTRA_TEXT) ?: ""
-        val bigText = extras.getString(Notification.EXTRA_BIG_TEXT) ?: ""
-        val summaryText = extras.getString(Notification.EXTRA_SUMMARY_TEXT) ?: ""
-        val subText = extras.getString(Notification.EXTRA_SUB_TEXT) ?: ""
-        val titleBig = extras.getString(Notification.EXTRA_TITLE_BIG) ?: ""
-        val infoText = extras.getString("android.extraInfoText") ?: ""
-
-        val parts = mutableListOf<String>()
-
-        if (titleBig.isNotBlank() && titleBig != title) parts.add(titleBig)
-
-        val linesStr = lines?.joinToString(" ") { it.toString().trim() }?.trim() ?: ""
-        if (linesStr.isNotBlank()) parts.add(linesStr)
-
-        if (bigText.isNotBlank() && bigText != text) parts.add(bigText)
-
-        if (text.isNotBlank()) parts.add(text)
-
-        if (summaryText.isNotBlank()) parts.add(summaryText)
-        if (subText.isNotBlank()) parts.add(subText)
-        if (infoText.isNotBlank()) parts.add(infoText)
-
-        notification.tickerText?.toString()?.trim()?.let {
-            if (it.isNotBlank()) parts.add(it)
-        }
-
-        return parts.distinct().joinToString("\n").trim()
-    }
-
-    private fun showToast(message: String) {
-        mainHandler.post {
-            Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     override fun onDestroy() {
+        isDestroying = true
+        scope.cancel()
+        val uptime = if (connectedAt > 0) (System.currentTimeMillis() - connectedAt) / 1000 else -1
+        Log.w("AutoBookkeeper", "💀 [NLS] onDestroy uptime=${uptime}s")
         super.onDestroy()
-        mainHandler.removeCallbacksAndMessages(null)
-        serviceScope.cancel()
+        App.notificationListenerRunning = false
+        stopForeground(STOP_FOREGROUND_REMOVE)
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.w("AutoBookkeeper", "🗑️ [NLS] onTaskRemoved")
+        super.onTaskRemoved(rootIntent)
+    }
+
+    override fun onLowMemory() {
+        Log.w("AutoBookkeeper", "⚠️ [NLS] onLowMemory")
+        super.onLowMemory()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        val levelName = when (level) {
+            android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> "COMPLETE"
+            android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE -> "MODERATE"
+            android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> "BACKGROUND"
+            android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> "UI_HIDDEN"
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> "RUNNING_CRITICAL"
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> "RUNNING_LOW"
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE -> "RUNNING_MODERATE"
+            else -> "UNKNOWN($level)"
+        }
+        Log.w("AutoBookkeeper", "⚠️ [NLS] onTrimMemory level=$levelName")
+        super.onTrimMemory(level)
+    }
+
+    override fun onNotificationPosted(sbn: StatusBarNotification?, rankingMap: RankingMap?) {
+        sbn?.let { handle(it) }
+    }
+
+    private fun handle(sbn: StatusBarNotification) {
+        // 主线程: 记录健康时间戳 + 提取基础字段
+        getSharedPreferences("nls_health", MODE_PRIVATE)
+            .edit().putLong("last_notification_time", System.currentTimeMillis()).apply()
+
+        val n = sbn.notification ?: return
+        val pkg = sbn.packageName
+        val title = n.extras?.getString(Notification.EXTRA_TITLE) ?: ""
+        val text = getAllText(n)
+
+        // 解析 (regex) 挪到 IO 协程, 不阻塞主线程
+        scope.launch {
+            try {
+                if (!parser.isPaymentNotification(pkg, title, text)) return@launch
+
+                val notificationId = "nls_" + sbn.key
+                val payment = parser.parsePayment(pkg, title, text, notificationId)
+                if (payment == null) {
+                    Log.w("AutoBookkeeper", "⚠️ parsePayment 返回 null! pkg=$pkg title=$title text前50字=${text.take(50)}")
+                    return@launch
+                }
+
+                Log.d("AutoBookkeeper", "📝 parse成功: ${payment.platform}/${payment.merchant}/¥${payment.amount} notificationId=$notificationId")
+
+                when (val result = expenseRepository.insertRaw(payment)) {
+                    is InsertResult.Inserted -> {
+                        Log.i("AutoBookkeeper", "💰 ${payment.platform}: ${payment.merchant} ¥${payment.amount}")
+                    }
+                    is InsertResult.Updated -> {
+                        Log.i(
+                            "AutoBookkeeper",
+                            "🔄 ${payment.platform}: ${result.existing.merchant}→${payment.merchant} ¥${payment.amount} (更新字段: ${result.updatedFields.joinToString()})"
+                        )
+                    }
+                    is InsertResult.Duplicate -> {
+                        val ex = result.existing
+                        Log.d(
+                            "AutoBookkeeper",
+                            "⏭ 重复: notificationId=$notificationId | 已在DB id=${ex.id} merchant=${ex.merchant} amount=${ex.amount} recordedAt=${ex.recordedAt}"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AutoBookkeeper", "handle 协程异常: $pkg/$title", e)
+            }
+        }
+    }
+
+    private fun startForegroundNotification() {
+        if (isDestroying) {
+            Log.w("AutoBookkeeper", "⏭ [NLS] startForeground skipped: service is destroying")
+            return
+        }
+        try {
+            val ch = NotificationChannel("nls", "监听", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "保持通知监听"
+                setShowBadge(false)
+            }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
+            val n = NotificationCompat.Builder(this, "nls")
+                .setContentTitle("自动记账")
+                .setContentText("通知监听运行中")
+                .setSmallIcon(android.R.drawable.ic_menu_manage)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    1001,
+                    n,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(1001, n)
+            }
+        } catch (e: Exception) {
+            Log.e("AutoBookkeeper", "前台通知启动失败, 服务可能被系统杀死", e)
+        }
+    }
+
+    private fun getAllText(n: Notification): String {
+        val e = n.extras ?: return ""
+        val p = mutableListOf<String>()
+
+        val lines = e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+        if (lines != null && lines.isNotEmpty()) {
+            p.add(lines.joinToString(" ") { it.toString().trim() })
+        }
+        e.getString(Notification.EXTRA_TEXT)?.takeIf { it.isNotBlank() }?.let { p.add(it) }
+        e.getString(Notification.EXTRA_BIG_TEXT)?.takeIf { it.isNotBlank() }?.let { p.add(it) }
+        e.getString(Notification.EXTRA_SUMMARY_TEXT)?.takeIf { it.isNotBlank() }?.let { p.add(it) }
+        e.getString(Notification.EXTRA_SUB_TEXT)?.takeIf { it.isNotBlank() }?.let { p.add(it) }
+        n.tickerText?.toString()?.trim()?.takeIf { it.isNotBlank() }?.let { p.add(it) }
+        return p.distinct().joinToString("\n").trim()
     }
 }

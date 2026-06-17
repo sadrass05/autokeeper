@@ -45,11 +45,6 @@ class CategoryRepository @Inject constructor(
             Category(name = "理财", icon = "trending_up", color = 0xFFE91E63.toInt()),
             Category(name = "理财支出", icon = "money_bill", color = 0xFFFF5722.toInt())
         )
-
-        defaultCategories.forEach { category ->
-            if (getCategoryByName(category.name) == null) {
-                insertCategory(category)
-            }
-        }
+        categoryDao.initDefaultsIfEmpty(defaultCategories)
     }
 }

@@ -5,10 +5,18 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
-class OcrManager @Inject constructor() {
+import java.io.Closeable
+
+@Singleton
+class OcrManager @Inject constructor() : Closeable {
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+
+    override fun close() {
+        recognizer.close()
+    }
 
     suspend fun recognizeText(bitmap: Bitmap): String {
         return try {

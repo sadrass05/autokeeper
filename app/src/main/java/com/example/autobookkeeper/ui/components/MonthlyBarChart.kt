@@ -3,11 +3,9 @@ package com.example.autobookkeeper.ui.components
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.drawable.GradientDrawable
-import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -123,42 +121,74 @@ private class RoundedBarChartRenderer(
     }
 }
 
-private class MonthlyMarkerView(
+internal class MonthlyDetailMarkerView(
     context: Context,
-    layoutResource: Int
-) : com.github.mikephil.charting.components.MarkerView(context, layoutResource) {
+    private val isStacked: Boolean = false
+) : com.github.mikephil.charting.components.MarkerView(context, R.layout.marker_empty) {
 
-    private val tvContent: TextView
-    private val padding = 16
-    private val radius = 12f
+    var monthlyData: List<MonthlyExpense> = emptyList()
 
-    init {
-        tvContent = TextView(context).apply {
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            gravity = Gravity.CENTER
-            setPadding(padding, padding / 2, padding, padding / 2)
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#CC333333"))
-                cornerRadius = radius
-            }
-        }
-        this.addView(tvContent, ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ))
+    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.parseColor("#CC1A1A2E")
+        style = Paint.Style.FILL
     }
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.WHITE
+    }
+    private val cornerRadius = 16f
+    private var displayLines = listOf<String>()
 
     override fun refreshContent(e: com.github.mikephil.charting.data.Entry?, highlight: Highlight?) {
-        val expense = e?.data as? MonthlyExpense
-        if (expense != null) {
-            tvContent.text = "${expense.month}月共支出 ¥${"%.2f".format(expense.amount)}"
+        val index = e?.x?.toInt() ?: return
+        val item = monthlyData.getOrNull(index) ?: return
+
+        val year = item.year
+        val month = item.month
+        displayLines = if (isStacked) {
+            listOf(
+                "${year}年${month}月",
+                "总支出：¥${"%.2f".format(item.totalAmount)}",
+                "日常支出：¥${"%.2f".format(item.nonFinanceAmount)}",
+                "理财支出：¥${"%.2f".format(item.financeAmount)}"
+            )
+        } else {
+            listOf(
+                "${year}年${month}月",
+                "总支出：¥${"%.2f".format(item.totalAmount)}"
+            )
         }
+
+        val maxWidth = displayLines.maxOf { textPaint.measureText(it) }
+        val viewWidth = (maxWidth + 48f).toInt()
+        val viewHeight = (displayLines.size * 44f + 32f).toInt()
+        layoutParams = ViewGroup.LayoutParams(viewWidth, viewHeight)
+
         super.refreshContent(e, highlight)
     }
 
+    override fun draw(canvas: Canvas, posX: Float, posY: Float) {
+        val width = width.toFloat()
+        val height = height.toFloat()
+
+        canvas.drawRoundRect(
+            posX, posY, posX + width, posY + height,
+            cornerRadius, cornerRadius, bgPaint
+        )
+
+        displayLines.forEachIndexed { i, line ->
+            textPaint.isFakeBoldText = (i == 0)
+            textPaint.textSize = if (i == 0) 38f else 33f
+            canvas.drawText(
+                line,
+                posX + 24f,
+                posY + 32f + i * 44f,
+                textPaint
+            )
+        }
+    }
+
     override fun getOffset(): MPPointF {
-        return MPPointF((-width / 2).toFloat(), (-height - 20).toFloat())
+        return MPPointF(-(width / 2f), -height.toFloat() - 16f)
     }
 }
 
@@ -181,7 +211,7 @@ fun MonthlyBarChart(
     val axisColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f).toArgb()
 
     val chartDataKey = remember(data) {
-        data.joinToString { "${it.year}-${it.month}-${it.amount}" }
+        data.joinToString { "${it.year}-${it.month}-${it.totalAmount}" }
     }
 
     AndroidView(
@@ -223,7 +253,8 @@ fun MonthlyBarChart(
 
                 axisRight.isEnabled = false
 
-                marker = MonthlyMarkerView(ctx, R.layout.marker_empty)
+                val markerView = MonthlyDetailMarkerView(ctx, isStacked = false)
+                marker = markerView
 
                 setNoDataText("")
             }
@@ -236,7 +267,7 @@ fun MonthlyBarChart(
             }
 
             val entries = data.mapIndexed { index, item ->
-                BarEntry(index.toFloat(), item.amount.toFloat(), item)
+                BarEntry(index.toFloat(), item.totalAmount.toFloat(), item)
             }
 
             val dataSet = BarDataSet(entries, "").apply {
@@ -260,6 +291,8 @@ fun MonthlyBarChart(
                     return if (index in data.indices) data[index].label.replace("\n", " ") else ""
                 }
             }
+
+            (chart.marker as? MonthlyDetailMarkerView)?.monthlyData = data
 
             chart.animateY(500)
             chart.invalidate()

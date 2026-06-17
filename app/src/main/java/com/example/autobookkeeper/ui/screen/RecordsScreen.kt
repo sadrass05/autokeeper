@@ -813,7 +813,7 @@ private fun SwipeableRecordItem(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("确认删除") },
-            text = { Text("确定要删除这条记录吗？\n\n商户：${expense.category.ifEmpty { "未分类" }}\n金额：¥${"%.2f".format(expense.amount)}") },
+            text = { Text("确定要删除这条记录吗？\n\n商户：${expense.merchant.ifEmpty { "未分类" }}\n金额：¥${"%.2f".format(expense.amount)}") },
             confirmButton = {
                 Button(
                     onClick = {

@@ -9,9 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,8 +48,8 @@ class BackupManager @Inject constructor(
             .apply { mkdirs() }
     }
 
-    private val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-    private val csvDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+    private val dateFormat = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")
+    private val csvDateFormat = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
     suspend fun performWeeklyBackup(): BackupResult = withContext(Dispatchers.IO) {
         return@withContext try {
@@ -62,7 +60,7 @@ class BackupManager @Inject constructor(
                 return@withContext BackupResult.Failure("无数据可备份")
             }
 
-            val dateStr = dateFormat.format(Date())
+            val dateStr = java.time.LocalDate.now().format(dateFormat)
             val fileName = "backup_$dateStr.csv"
             val file = File(backupDir, fileName)
 
@@ -85,7 +83,7 @@ class BackupManager @Inject constructor(
 
         expenses.forEach { e ->
             sb.appendLine(listOf(
-                csvDateFormat.format(Date(e.recordedAt)),
+                csvDateFormat.format(java.time.Instant.ofEpochMilli(e.recordedAt).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()),
                 e.merchant.ifBlank { "未知商户" },
                 "%.2f".format(e.amount),
                 e.platform.ifBlank { "未知平台" },
@@ -202,7 +200,10 @@ class BackupManager @Inject constructor(
     private fun parseBackupDate(fileName: String): Long {
         return try {
             val dateStr = fileName.removePrefix("backup_").removeSuffix(".csv")
-            dateFormat.parse(dateStr)?.time ?: System.currentTimeMillis()
+            java.time.LocalDate.parse(dateStr, dateFormat)
+                .atStartOfDay(java.time.ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
         } catch (_: Exception) {
             System.currentTimeMillis()
         }
@@ -240,18 +241,23 @@ class BackupManager @Inject constructor(
         if (cleaned.isEmpty() || cleaned == "-" || cleaned == "日期时间") {
             return System.currentTimeMillis()
         }
-        val formats = listOf(
-            "yyyy-MM-dd HH:mm:ss",
-            "yyyy-MM-dd HH:mm",
-            "yyyy/MM/dd HH:mm",
-            "MM-dd HH:mm"
+        val zone = java.time.ZoneId.systemDefault()
+        val now = java.time.LocalDate.now()
+        val formattersWithYear = listOf(
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"),
+            java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
         )
-        formats.forEach { pattern ->
+        for (f in formattersWithYear) {
             runCatching {
-                val sdf = SimpleDateFormat(pattern, Locale.getDefault())
-                sdf.isLenient = false
-                return sdf.parse(cleaned)?.time ?: return@runCatching
+                val ldt = java.time.LocalDateTime.parse(cleaned, f)
+                return ldt.atZone(zone).toInstant().toEpochMilli()
             }
+        }
+        runCatching {
+            val f = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")
+            val md = java.time.MonthDay.parse(cleaned, f)
+            return md.atYear(now.year).atStartOfDay(zone).toInstant().toEpochMilli()
         }
         return System.currentTimeMillis()
     }

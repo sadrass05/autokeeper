@@ -91,6 +91,7 @@ import com.example.autobookkeeper.ui.importdata.ImportManager
 import com.example.autobookkeeper.data.repository.ExpenseRepository
 import com.example.autobookkeeper.backup.BackupManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.LaunchedEffect
@@ -106,7 +107,9 @@ import androidx.compose.runtime.DisposableEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    onNavigateToNlsDetail: () -> Unit = {}
+) {
     var showSyncSheet by remember { mutableStateOf(false) }
 
     var isSyncing by remember { mutableStateOf(false) }
@@ -140,6 +143,11 @@ fun SettingsScreen() {
         currentExpenseRepository = appContext.currentExpenseRepository()
         currentBackupManager = appContext.currentBackupManager()
         initialized = true
+
+        currentSyncPrefs?.let {
+            var serverIp = it.serverIp
+            var serverPortText = it.serverPort.toString()
+        }
     }
 
     var importResult by remember { mutableStateOf<ImportResult?>(null) }
@@ -151,10 +159,10 @@ fun SettingsScreen() {
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", LocalLocale.current.platformLocale)
             .format(Date(currentSyncPrefs?.lastSyncTime ?: 0L))
     } else "从未同步"
-    val initialDarkTheme = remember { false }
-    var isDarkTheme by remember { mutableStateOf(initialDarkTheme) }
+    var isDarkTheme by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        isDarkTheme = ThemePrefs.isDarkTheme(context).first()
         ThemePrefs.isDarkTheme(context).collect { dark ->
             isDarkTheme = dark
         }
@@ -855,7 +863,7 @@ fun SettingsScreen() {
                 val lastBackup = backupList.firstOrNull()
                 Text(
                     text = if (lastBackup != null)
-                        "上次备份: ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(lastBackup.date)}"
+                        "上次备份: ${SimpleDateFormat("yyyy-MM-dd HH:mm", LocalLocale.current.platformLocale).format(lastBackup.date)}"
                     else "暂无备份",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

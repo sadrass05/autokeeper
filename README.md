@@ -9,10 +9,12 @@
 
 ## ⬇️ 下载安装
 
-[![Download Standard](https://img.shields.io/badge/Download-Standard%E7%89%88-green?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/latest)
-[![Download Pro](https://img.shields.io/badge/Download-Pro%E7%89%88-blue?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/latest)
+[![Download Standard](https://img.shields.io/badge/Download-Standard%E7%89%88-green?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/raw/main/apk/standard/app-standard-release.apk)
+[![Download Pro](https://img.shields.io/badge/Download-Pro%E7%89%88-blue?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/raw/main/apk/pro/app-pro-release.apk)
 
 > 💡 **不知道选哪个？** 往下看版本对比 👇
+>
+> 📦 **下载方式说明：** 当前使用仓库内 `apk/` 目录分发（GitHub Releases 暂未配置）。点击上方按钮即可直接下载对应版本的 APK。
 
 ### 📊 版本对比
 
@@ -26,6 +28,8 @@
 | 🌙 深色/浅色主题 | ✅ | ✅ |
 | ✅ 数据一致性校验 | ✅ | ✅ |
 | 🗑️ 软删除回收站 | ✅ | ✅ |
+| 🛡️ NLS 健康监测 | ✅ | ✅ |
+| 📱 ROM 引导设置 | ✅ | ✅ |
 | 💹 理财持仓管理 | ❌ | ✅ |
 | 📈 收益排行榜 | ❌ | ✅ |
 | 🗄️ MySQL 数据同步 | ❌ | ✅ |
@@ -62,6 +66,8 @@
 - 🥧 **当日支出分类饼图** —— 餐饮、交通、购物…… 各占多少一目了然
 - 📅 **按天分组的交易记录** —— 时间线式浏览，像翻聊天记录一样自然
 - 🗑️ **回收站（软删除）** —— 误删不怕，随时恢复
+- 🛡️ **NLS 健康监测** —— WorkManager 看门狗 + AlarmManager 兜底，国产 ROM 上自动保活通知监听
+- 📱 **ROM 引导设置** —— 自动识别 MIUI/HyperOS/ColorOS/EMUI/OriginOS，一键开启自启动和电池优化白名单
 
 ### Pro 版专属 💎
 

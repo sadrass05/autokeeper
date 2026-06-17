@@ -31,7 +31,14 @@ import java.util.Date
 import java.util.Locale
 
 data class DailyExpense(val date: String, val amount: Float)
-data class MonthlyExpense(val year: Int, val month: Int, val amount: Double, val label: String)
+data class MonthlyExpense(
+    val year: Int,
+    val month: Int,
+    val totalAmount: Double,
+    val nonFinanceAmount: Double,
+    val financeAmount: Double,
+    val label: String
+)
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -115,8 +122,6 @@ class MainViewModel @Inject constructor(
 
         cleanExpiredTrash()
         loadDeletedExpenses()
-
-        calculateNetFinanceProfit()
     }
 
     private fun loadData() {
@@ -200,9 +205,19 @@ class MainViewModel @Inject constructor(
                 calendar.add(Calendar.MONTH, 1)
                 val statEnd = calendar.timeInMillis - 1
 
-                val amount = expenseRepository.getTotalExpenseByMonthIncludingFinance(statStart, statEnd) ?: 0.0
+                val totalIncludingFinance = expenseRepository.getTotalExpenseByMonthIncludingFinance(statStart, statEnd) ?: 0.0
+                val nonFinanceAmount = expenseRepository.getNonFinanceExpenseByMonth(statStart, statEnd)
+                val financeAmount = totalIncludingFinance - nonFinanceAmount
+
                 val label = if (i == 0 || month == 1) "${year}\n${month}月" else "${month}月"
-                statsResult.add(0, MonthlyExpense(year, month, amount, label))
+                statsResult.add(0, MonthlyExpense(
+                    year = year,
+                    month = month,
+                    totalAmount = totalIncludingFinance,
+                    nonFinanceAmount = nonFinanceAmount,
+                    financeAmount = financeAmount.coerceAtLeast(0.0),
+                    label = label
+                ))
 
                 calendar.add(Calendar.MONTH, -2)
             }
@@ -255,7 +270,9 @@ class MainViewModel @Inject constructor(
                         recordedAt = record.recordedAt
                     )
                 }
-                (newRecords + converted).sortedByDescending { it.recordedAt }
+                (newRecords + converted)
+                    .distinctBy { Triple(it.amount, it.description, it.recordedAt / 60000) }
+                    .sortedByDescending { it.recordedAt }
             }.collect { _financeExpenses.value = it }
         }
     }

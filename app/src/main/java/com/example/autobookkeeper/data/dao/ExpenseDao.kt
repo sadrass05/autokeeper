@@ -33,6 +33,9 @@ interface ExpenseDao {
     @Query("SELECT SUM(amount) FROM expenses WHERE isFinanceExpense = false AND isDeleted = 0 AND recordedAt >= :startTime AND recordedAt <= :endTime")
     suspend fun getTotalExpenseByMonth(startTime: Long, endTime: Long): Double?
 
+    @Query("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE isFinanceExpense = 0 AND isDeleted = 0 AND recordedAt >= :startTime AND recordedAt <= :endTime")
+    suspend fun getNonFinanceExpenseByMonth(startTime: Long, endTime: Long): Double
+
     @Query("SELECT SUM(amount) FROM expenses WHERE isDeleted = 0 AND recordedAt >= :startTime AND recordedAt <= :endTime")
     suspend fun getTotalExpenseByMonthIncludingFinance(startTime: Long, endTime: Long): Double?
 
@@ -51,8 +54,11 @@ interface ExpenseDao {
     @Query("SELECT platform, SUM(amount) as total FROM expenses WHERE isFinanceExpense = false AND isDeleted = 0 GROUP BY platform")
     suspend fun getExpenseByPlatform(): List<PlatformStat>
 
-    @Query("SELECT COUNT(*) FROM expenses WHERE notificationId = :notificationId")
+    @Query("SELECT COUNT(*) FROM expenses WHERE notificationId = :notificationId AND isDeleted = 0")
     suspend fun existsByNotificationId(notificationId: String): Int
+
+    @Query("SELECT * FROM expenses WHERE notificationId = :notificationId AND isDeleted = 0 ORDER BY recordedAt DESC")
+    suspend fun findByNotificationId(notificationId: String): List<ExpenseRecord>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(expense: ExpenseRecord): Long

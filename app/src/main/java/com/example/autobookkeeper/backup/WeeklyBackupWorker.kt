@@ -12,17 +12,17 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.example.autobookkeeper.App
+import androidx.hilt.work.HiltWorker
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 
-class WeeklyBackupWorker(
-    context: Context,
-    params: WorkerParameters
+@HiltWorker
+class WeeklyBackupWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val backupManager: BackupManager
 ) : CoroutineWorker(context, params) {
-
-    private val backupManager: BackupManager by lazy {
-        App.instance.backupManager
-    }
 
     override suspend fun doWork(): Result {
         return try {

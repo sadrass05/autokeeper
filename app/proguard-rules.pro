@@ -1,6 +1,13 @@
 -keep class com.example.autobookkeeper.** { *; }
 -keepclassmembers class com.example.autobookkeeper.** { *; }
 
+# =============================================
+# NotificationListener 服务（必须完整保留，防止 R8 优化移除）
+# =============================================
+-keep class com.example.autobookkeeper.notification.NotificationListener { *; }
+-keep class com.example.autobookkeeper.notification.PaymentParser { *; }
+-dontwarn com.example.autobookkeeper.notification.**
+
 -keepclassmembers enum * {
     public static **[] values();
     public static ** valueOf(java.lang.String);

@@ -9,12 +9,12 @@
 
 ## ⬇️ 下载安装
 
-[![Download Standard](https://img.shields.io/badge/Download-Standard%E7%89%88-green?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/tree/master/apk/standard)
-[![Download Pro](https://img.shields.io/badge/Download-Pro%E7%89%88-blue?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/tree/master/apk/pro)
+[![Download Standard](https://img.shields.io/badge/Download-Standard%E7%89%88-green?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/latest)
+[![Download Pro](https://img.shields.io/badge/Download-Pro%E7%89%88-blue?style=for-the-badge&logo=android)](https://github.com/sadrass05/autokeeper/releases/latest)
 
 > 💡 **不知道选哪个？** 往下看版本对比 👇
 >
-> 📦 **下载方式说明：** 当前使用仓库内 `apk/` 目录分发（GitHub Releases 暂未配置）。点击上方按钮即可直接下载对应版本的 APK。
+> 📦 **下载方式说明：** 通过 GitHub Releases 分发，链接自动指向最新版本。点击上方按钮即可直接下载对应版本的 APK（Standard 选 `app-standard-release.apk`，Pro 选 `app-pro-release.apk`）。
 
 ### 📊 版本对比
 

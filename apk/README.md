@@ -77,11 +77,15 @@ APK 使用项目根目录的 `autobookkeeper.jks` 签名（已在 `.gitignore` �
 3. **覆盖安装** Standard 版不会影响 Pro 版数据
 4. **APK 文件较大** 是因为包含 Compose、Hilt、ML Kit 等完整运行时
 
-## 🚀 与 GitHub Releases 的关系
+## 🆚 与 GitHub Releases 的关系
 
-本项目当前使用**仓库内分发**（`apk/` 目录）作为主要下载方式，这是临时方案。
+**当前已配置 GitHub Releases**（v1.0.0、v1.0.0-pro），推荐使用 Release 链接下载：
 
-未来将迁移到 GitHub Releases 以提供：
+- **Standard:** https://github.com/sadrass05/autokeeper/releases/download/v1.0.0/app-standard-release.apk
+- **Pro:** https://github.com/sadrass05/autokeeper/releases/download/v1.0.0-pro/app-pro-release.apk
+- **Latest:** https://github.com/sadrass05/autokeeper/releases/latest
+
+仓库内 `apk/` 目录作为备份分发方式保留，新版本请优先通过 Release 分发，以获得：
 - 📌 版本号管理（v1.0.0, v1.0.1, ...）
 - 📋 Release Notes
 - 📊 下载统计

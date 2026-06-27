@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.example.autobookkeeper.data.repository.ExpenseRepository
+import com.example.autobookkeeper.ui.screen.safeFormatDouble
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -80,7 +81,7 @@ class CsvExporter @Inject constructor(
             listOf(
                 dateFormat.format(Date(e.recordedAt)),
                 e.merchant.ifBlank { "未知商户" },
-                "%.2f".format(e.amount),
+                safeFormatDouble(e.amount),
                 e.platform.ifBlank { "未知平台" },
                 e.paymentChannel.ifBlank { "未知" },
                 e.category.ifBlank { "未分类" },

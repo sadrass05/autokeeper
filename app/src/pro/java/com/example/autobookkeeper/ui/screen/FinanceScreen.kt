@@ -100,7 +100,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import androidx.compose.ui.platform.LocalLocale
+import com.example.autobookkeeper.ui.screen.safeFormatDouble
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -324,13 +325,13 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(
-                                            "-¥${"%.2f".format(expense.amount)}",
+                                            "-¥${safeFormatDouble(expense.amount)}",
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.error
                                         )
                                         Text(
-                                            java.text.SimpleDateFormat("MM-dd HH:mm", LocalLocale.current.platformLocale).format(java.util.Date(expense.recordedAt)),
+                                            java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(expense.recordedAt)),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -427,13 +428,13 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(
-                                            "-¥${"%.2f".format(record.amount)}",
+                                            "-¥${safeFormatDouble(record.amount)}",
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.error
                                         )
                                         Text(
-                                            java.text.SimpleDateFormat("MM-dd", LocalLocale.current.platformLocale).format(java.util.Date(record.recordedAt)),
+                                            java.text.SimpleDateFormat("MM-dd", java.util.Locale.getDefault()).format(java.util.Date(record.recordedAt)),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -485,7 +486,7 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
 
             item { Spacer(modifier = Modifier.height(8.dp)) }
 
-            items(positions, key = { it.id }) { position ->
+            items(positions, key = { "${it.id}_${it.productName}_${it.updatedAt}" }) { position ->
                 Column {
                     Box {
                         Row(
@@ -503,8 +504,8 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
                                 Text(position.platform, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("¥${"%.2f".format(position.profit)}", style = MaterialTheme.typography.headlineMedium, color = if (position.profit >= 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error)
-                                Text("${"%.2f".format(position.profitRate)}%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("¥${safeFormatDouble(position.profit)}", style = MaterialTheme.typography.headlineMedium, color = if (position.profit >= 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error)
+                                Text("${safeFormatDouble(position.profitRate)}%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         DropdownMenu(expanded = showContextMenu && contextMenuPosition == position, onDismissRequest = { showContextMenu = false }) {
@@ -607,7 +608,7 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
                                 Text(position.productName.ifEmpty { "未命名" }, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                                 Text(position.platform.ifEmpty { "未知平台" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text("¥${"%.2f".format(position.currentValue)}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                            Text("¥${safeFormatDouble(position.currentValue)}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                         }
                         if (index < importPreviewData.take(5).size - 1) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
@@ -672,7 +673,7 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
             onDismissRequest = { showAddAmountDialog = false },
             title = { Text("加仓") },
             text = { OutlinedTextField(value = addReduceAmount, onValueChange = { addReduceAmount = it }, label = { Text("加仓金额") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { Button(onClick = { val amount = addReduceAmount.toDoubleOrNull() ?: 0.0; if (amount > 0) { targetPos?.let { pos -> val updated = pos.copy(buyAmount = pos.buyAmount + amount, currentValue = pos.currentValue + amount); coroutineScope.launch { viewModel.updateFinancePosition(updated) } } }; showAddAmountDialog = false }) { Text("确定") } },
+            confirmButton = { Button(onClick = { val amount = addReduceAmount.toDoubleOrNull() ?: 0.0; if (amount > 0) { targetPos?.let { pos -> val newBuyAmount = pos.buyAmount + amount; val newCurrentValue = pos.currentValue + amount; val newProfit = pos.profit; val newProfitRate = if (newBuyAmount > 0) newProfit / newBuyAmount * 100 else pos.profitRate; val updated = pos.copy(buyAmount = newBuyAmount, currentValue = newCurrentValue, profit = newProfit, profitRate = newProfitRate); coroutineScope.launch { viewModel.updateFinancePosition(updated) } } }; showAddAmountDialog = false }) { Text("确定") } },
             dismissButton = { Button(onClick = { showAddAmountDialog = false }) { Text("取消") } }
         )
     }
@@ -683,7 +684,7 @@ fun FinanceScreen(viewModel: MainViewModel = hiltViewModel()) {
             onDismissRequest = { showReduceAmountDialog = false },
             title = { Text("减仓") },
             text = { OutlinedTextField(value = addReduceAmount, onValueChange = { addReduceAmount = it }, label = { Text("减仓金额") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { Button(onClick = { val amount = addReduceAmount.toDoubleOrNull() ?: 0.0; if (amount > 0) { targetPos?.let { pos -> val updated = pos.copy(buyAmount = (pos.buyAmount - amount).coerceAtLeast(0.0), currentValue = (pos.currentValue - amount).coerceAtLeast(0.0)); coroutineScope.launch { viewModel.updateFinancePosition(updated) } } }; showReduceAmountDialog = false }) { Text("确定") } },
+            confirmButton = { Button(onClick = { val amount = addReduceAmount.toDoubleOrNull() ?: 0.0; if (amount > 0) { targetPos?.let { pos -> val newBuyAmount = (pos.buyAmount - amount).coerceAtLeast(0.0); val newCurrentValue = (pos.currentValue - amount).coerceAtLeast(0.0); val newProfit = newCurrentValue - newBuyAmount; val newProfitRate = if (newBuyAmount > 0) newProfit / newBuyAmount * 100 else 0.0; val updated = pos.copy(buyAmount = newBuyAmount, currentValue = newCurrentValue, profit = newProfit, profitRate = newProfitRate); coroutineScope.launch { viewModel.updateFinancePosition(updated) } } }; showReduceAmountDialog = false }) { Text("确定") } },
             dismissButton = { Button(onClick = { showReduceAmountDialog = false }) { Text("取消") } }
         )
     }
@@ -1038,12 +1039,13 @@ private suspend fun parseFinanceFile(context: Context, uri: Uri): FinanceParseRe
 }
 
 private fun formatFinanceAmount(value: Double): String {
+    if (value.isNaN() || value.isInfinite()) return "¥0.00"
     val abs = kotlin.math.abs(value)
     val sign = if (value < 0) "-" else ""
     return when {
-        abs >= 100_000_000 -> "${sign}¥${"%.2f".format(abs / 100_000_000)}亿"
-        abs >= 10_000 -> "${sign}¥${"%.2f".format(abs / 10_000)}万"
-        else -> "${sign}¥${"%.2f".format(abs)}"
+        abs >= 100_000_000 -> "${sign}¥${safeFormatDouble(abs / 100_000_000)}亿"
+        abs >= 10_000 -> "${sign}¥${safeFormatDouble(abs / 10_000)}万"
+        else -> "${sign}¥${safeFormatDouble(abs)}"
     }
 }
 

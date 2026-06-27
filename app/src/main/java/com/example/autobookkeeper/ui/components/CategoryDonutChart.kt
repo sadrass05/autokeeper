@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.autobookkeeper.ui.screen.safeFormatDouble
 
 private val chartColors = listOf(
     Color(0xFFE57373),
@@ -106,7 +107,7 @@ fun CategoryDonutChart(
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "¥${"%.2f".format(total)}",
+                    text = "¥${safeFormatDouble(total)}",
                     style = MaterialTheme.typography.titleLarge,
                     color = onBackground,
                     fontWeight = FontWeight.Bold
@@ -152,7 +153,7 @@ fun CategoryDonutChart(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "¥${"%.2f".format(amount)}",
+                            text = "¥${safeFormatDouble(amount)}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = onBackground,
                             fontWeight = FontWeight.Medium

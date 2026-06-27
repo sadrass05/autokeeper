@@ -17,6 +17,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import com.example.autobookkeeper.ui.screen.safeFormatDouble
 
 private fun isSameDay(today: Calendar, target: Calendar): Boolean {
     return today.get(Calendar.YEAR) == target.get(Calendar.YEAR) &&
@@ -68,14 +69,14 @@ fun DayGroupHeader(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (totalOut > 0) {
                 Text(
-                    text = "出 ¥${"%.2f".format(totalOut)}",
+                    text = "出 ¥${safeFormatDouble(totalOut)}",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (totalIn > 0) {
                 Text(
-                    text = "入 ¥${"%.2f".format(totalIn)}",
+                    text = "入 ¥${safeFormatDouble(totalIn)}",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.tertiary
                 )

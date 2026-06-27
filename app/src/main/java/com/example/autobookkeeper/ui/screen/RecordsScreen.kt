@@ -93,7 +93,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 
 private val platformOptions = listOf("全部", "微信", "支付宝", "拼多多", "云闪付", "美团", "京东")
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun RecordsScreen(viewModel: MainViewModel = hiltViewModel()) {
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
@@ -798,8 +798,8 @@ private fun SwipeableRecordItem(
                 }
             }
             Text(
-                text = if (expense.amount < 0) "+¥${"%.2f".format(-expense.amount)}"
-                       else "-¥${"%.2f".format(expense.amount)}",
+                text = if (expense.amount < 0) "+¥${safeFormatDouble(-expense.amount)}"
+                       else "-¥${safeFormatDouble(expense.amount)}",
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
                 color = if (expense.amount < 0) MaterialTheme.colorScheme.tertiary
@@ -813,7 +813,7 @@ private fun SwipeableRecordItem(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("确认删除") },
-            text = { Text("确定要删除这条记录吗？\n\n商户：${expense.merchant.ifEmpty { "未分类" }}\n金额：¥${"%.2f".format(expense.amount)}") },
+            text = { Text("确定要删除这条记录吗？\n\n商户：${expense.merchant.ifEmpty { "未分类" }}\n金额：¥${safeFormatDouble(expense.amount)}") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -886,7 +886,7 @@ private fun EditRecordSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "¥${"%.2f".format(expense.amount)}",
+                text = "¥${safeFormatDouble(expense.amount)}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.Bold

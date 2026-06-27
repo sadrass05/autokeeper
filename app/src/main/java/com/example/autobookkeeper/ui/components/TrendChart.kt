@@ -24,6 +24,7 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.example.autobookkeeper.ui.screen.safeFormatDouble
 
 enum class ChartType { LINE, BAR }
 
@@ -142,7 +143,7 @@ fun TrendChart(
                             valueFormatter = object : ValueFormatter() {
                                 override fun getPointLabel(entry: Entry?): String {
                                     if (entry == null) return ""
-                                    return "¥${"%.2f".format(entry.y)}"
+                                    return "¥${safeFormatDouble(entry.y.toDouble())}"
                                 }
                             }
                             setDrawFilled(true)
@@ -214,7 +215,7 @@ fun TrendChart(
                             valueFormatter = object : ValueFormatter() {
                                 override fun getBarLabel(barEntry: BarEntry?): String {
                                     if (barEntry == null) return ""
-                                    return "¥${"%.2f".format(barEntry.y)}"
+                                    return "¥${safeFormatDouble(barEntry.y.toDouble())}"
                                 }
                             }
                         }

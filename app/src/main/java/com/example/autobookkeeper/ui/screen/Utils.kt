@@ -8,3 +8,11 @@ fun formatDate(timestamp: Long): String {
     return SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
         .format(java.util.Date(timestamp))
 }
+
+fun safeFormatDouble(value: Double): String {
+    return when {
+        value.isNaN() -> "0.00"
+        value.isInfinite() -> if (value > 0) "∞" else "-∞"
+        else -> "%.2f".format(value)
+    }
+}

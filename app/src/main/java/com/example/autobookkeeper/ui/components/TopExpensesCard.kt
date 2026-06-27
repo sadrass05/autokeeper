@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.autobookkeeper.data.entity.ExpenseRecord
+import com.example.autobookkeeper.ui.screen.safeFormatDouble
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -186,7 +187,7 @@ fun TopExpensesCard(
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "¥${"%.2f".format(expense.amount)}",
+                            text = "¥${safeFormatDouble(expense.amount)}",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.error

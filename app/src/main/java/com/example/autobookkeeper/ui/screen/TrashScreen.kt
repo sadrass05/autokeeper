@@ -139,7 +139,7 @@ private fun TrashItem(
             )
         }
         Text(
-            text = "¥${"%.2f".format(expense.amount)}",
+            text = "¥${safeFormatDouble(expense.amount)}",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.error,
             fontWeight = FontWeight.Bold,

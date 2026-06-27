@@ -99,7 +99,6 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.compose.foundation:foundation:1.11.2'
     implementation "androidx.lifecycle:lifecycle-process:2.8.4"
 
     implementation 'androidx.core:core-ktx:1.13.1'

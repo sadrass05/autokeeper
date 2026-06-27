@@ -54,19 +54,23 @@ class WeeklyBackupWorker @AssistedInject constructor(
                 val request = PeriodicWorkRequestBuilder<WeeklyBackupWorker>(
                     7, TimeUnit.DAYS
                 )
-                    .setInitialDelay(24, TimeUnit.HOURS)
+                    .setInitialDelay(1, TimeUnit.HOURS)  // 首次延迟从 24h 缩短为 1h, 让新用户更快看到备份
                     .setConstraints(
                         Constraints.Builder()
-                            .setRequiresBatteryNotLow(true)
+                            .setRequiresBatteryNotLow(false)  // 移除电量约束: 修复电量低时备份永不执行的 bug
                             .build()
                     )
                     .setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.MINUTES)
                     .build()
 
                 WorkManager.getInstance(context)
-                    .enqueueUniquePeriodicWork(TAG, ExistingPeriodicWorkPolicy.KEEP, request)
+                    .enqueueUniquePeriodicWork(
+                        TAG,
+                        ExistingPeriodicWorkPolicy.UPDATE,  // 改为 UPDATE: 代码改了能立即生效, 不会再保留旧配置
+                        request
+                    )
 
-                Log.i(TAG, "Weekly backup scheduled successfully")
+                Log.i(TAG, "Weekly backup scheduled: 7天周期, 1h首次延迟, 无电量约束, UPDATE策略")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to schedule weekly backup", e)
             }

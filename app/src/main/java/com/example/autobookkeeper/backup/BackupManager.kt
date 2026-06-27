@@ -43,9 +43,37 @@ class BackupManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val expenseRepository: ExpenseRepository
 ) {
-    private val backupDir by lazy {
-        File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "backups/weekly")
-            .apply { mkdirs() }
+    /**
+     * 测试用 secondary constructor: 直接注入 backupDir 路径, 避免在 JVM 单测中 mock Context.
+     * 产线代码仍走 primary constructor (从 context.getExternalFilesDir 派生路径).
+     */
+    internal constructor(
+        context: Context,
+        expenseRepository: ExpenseRepository,
+        backupDir: File
+    ) : this(context, expenseRepository) {
+        this.backupDirOverride = backupDir
+    }
+
+    private var backupDirOverride: File? = null
+
+    /** 测试访问器: 返回注入的 backupDir 路径, 产线代码不应调用. */
+    internal fun backupDirOverrideForTest(): File? = backupDirOverride
+
+    /** 测试访问器: 调用 writeCsv 供测试使用. */
+    internal fun writeCsvForTest(file: File, expenses: List<ExpenseRecord>) {
+        writeCsv(file, expenses)
+    }
+
+    /** 测试访问器: 调用 cleanOldBackupsImpl 供测试使用. */
+    internal fun cleanOldBackupsImplForTest(dir: File, keep: Int) {
+        cleanOldBackupsImpl(dir, keep)
+    }
+
+    private val backupDir: File by lazy {
+        backupDirOverride
+            ?: File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "backups/weekly")
+                .apply { mkdirs() }
     }
 
     private val dateFormat = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")
@@ -57,7 +85,7 @@ class BackupManager @Inject constructor(
                 .filter { !it.isDeleted }
 
             if (expenses.isEmpty()) {
-                return@withContext BackupResult.Failure("无数据可备份")
+                return@withContext BackupResult.Success(fileName = "", count = 0)
             }
 
             val dateStr = java.time.LocalDate.now().format(dateFormat)
@@ -76,24 +104,44 @@ class BackupManager @Inject constructor(
 
     suspend fun performManualBackup(): BackupResult = performWeeklyBackup()
 
-    private fun writeCsv(file: File, expenses: List<ExpenseRecord>) {
+    internal fun writeCsv(file: File, expenses: List<ExpenseRecord>) {
         val sb = StringBuilder()
         sb.append('\uFEFF')
         sb.appendLine("日期时间,商户名称,金额,平台,支付渠道,分类,是否理财支出")
 
         expenses.forEach { e ->
-            sb.appendLine(listOf(
-                csvDateFormat.format(java.time.Instant.ofEpochMilli(e.recordedAt).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()),
+            val fields = listOf(
+                csvDateFormat.format(
+                    java.time.Instant.ofEpochMilli(e.recordedAt)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDateTime()
+                ),
                 e.merchant.ifBlank { "未知商户" },
                 "%.2f".format(e.amount),
                 e.platform.ifBlank { "未知平台" },
                 e.paymentChannel.ifBlank { "未知" },
                 e.category.ifBlank { "未分类" },
                 if (e.isFinanceExpense) "是" else "否"
-            ).joinToString(",") { "\"${it.replace("\"", "\"\"")}\"" })
+            )
+            sb.appendLine(fields.joinToString(",") { escapeCsvField(it) })
         }
 
         file.writeText(sb.toString(), Charsets.UTF_8)
+    }
+
+    /**
+     * RFC 4180 CSV 字段转义:
+     * - 字段含 `,` / `"` / `\n` / `\r` → 用双引号包围
+     * - 字段内的 `"` → 转义为 `""`
+     * - 普通字段不加引号 (兼容旧解析器)
+     */
+    internal fun escapeCsvField(value: String): String {
+        val needsQuoting = value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
+        return if (needsQuoting) {
+            "\"" + value.replace("\"", "\"\"") + "\""
+        } else {
+            value
+        }
     }
 
     fun getBackupList(): List<BackupFile> {
@@ -119,13 +167,25 @@ class BackupManager @Inject constructor(
         }
     }
 
-    private fun cleanOldBackups() {
-        val twoWeeksAgo = System.currentTimeMillis() - 14L * 24 * 60 * 60 * 1000
-        (backupDir.listFiles() ?: emptyArray()).forEach { file ->
-            if (file.lastModified() < twoWeeksAgo && file.name.endsWith(".csv")) {
-                file.delete()
-            }
+    private fun cleanOldBackups() = cleanOldBackupsImpl(backupDir, keep = MAX_BACKUP_FILES)
+
+    /**
+     * 清理老备份, 保留最近 keep 个文件.
+     * 修复前用 14 天硬编码清理窗口, 加上 7 天备份周期, 实际可能只剩 1 个.
+     * 修复后按数量保留, 与备份周期解耦.
+     */
+    internal fun cleanOldBackupsImpl(dir: File, keep: Int) {
+        val files = (dir.listFiles() ?: emptyArray())
+            .filter { it.name.endsWith(".csv") && it.isFile }
+            .sortedByDescending { it.lastModified() }
+        if (files.size > keep) {
+            files.drop(keep).forEach { it.delete() }
         }
+    }
+
+    private companion object {
+        /** 保留最近 4 个备份 (在 7 天备份周期下, 覆盖 1 个月数据). */
+        const val MAX_BACKUP_FILES = 4
     }
 
     suspend fun verifyDataIntegrity(): VerifyResult = withContext(Dispatchers.IO) {
@@ -209,12 +269,14 @@ class BackupManager @Inject constructor(
         }
     }
 
-    private fun parseCsvToExpenses(file: File): List<ExpenseRecord> {
+    internal fun parseCsvToExpenses(file: File): List<ExpenseRecord> {
         return try {
-            val lines = file.readText(Charsets.UTF_8).lines().drop(1).filter { it.isNotBlank() }
+            val lines = file.readText(Charsets.UTF_8).lines()
+                .drop(1)  // 跳过表头
+                .filter { it.isNotBlank() }
             lines.mapIndexedNotNull { index, line ->
                 runCatching {
-                    val cols = line.split(",").map { it.trim().removeSurrounding("\"") }
+                    val cols = parseCsvLine(line)
                     if (cols.size >= 7) {
                         ExpenseRecord(
                             merchant = cols[1].ifBlank { "未知商户" },
@@ -234,6 +296,43 @@ class BackupManager @Inject constructor(
         } catch (_: Exception) {
             emptyList()
         }
+    }
+
+    /**
+     * CSV 单行解析, 支持 RFC 4180 双引号转义:
+     * - 字段含逗号 → 用双引号包围
+     * - 字段内含双引号 → 转义为两个双引号 ""
+     * - 行尾 `\r\n` 由 readText().lines() 自动去除
+     */
+    internal fun parseCsvLine(line: String): List<String> {
+        val result = mutableListOf<String>()
+        val current = StringBuilder()
+        var inQuotes = false
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            when {
+                c == '"' && inQuotes && i + 1 < line.length && line[i + 1] == '"' -> {
+                    // 双引号转义: "" → "
+                    current.append('"')
+                    i += 2
+                    continue
+                }
+                c == '"' -> {
+                    inQuotes = !inQuotes
+                }
+                c == ',' && !inQuotes -> {
+                    result.add(current.toString())
+                    current.clear()
+                }
+                else -> {
+                    current.append(c)
+                }
+            }
+            i++
+        }
+        result.add(current.toString())
+        return result
     }
 
     private fun parseDateTime(dateStr: String): Long {

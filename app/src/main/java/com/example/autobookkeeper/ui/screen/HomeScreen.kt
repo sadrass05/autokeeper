@@ -419,7 +419,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "¥${"%.2f".format(dailyExpense)}",
+                            text = "¥${safeFormatDouble(dailyExpense)}",
                             style = MaterialTheme.typography.displaySmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.error
@@ -441,7 +441,7 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "¥${"%.2f".format(monthlyExpense)}",
+                                text = "¥${safeFormatDouble(monthlyExpense)}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -481,7 +481,7 @@ fun HomeScreen(
                                     color = Color(0xFF8D6E63)
                                 )
                                 Text(
-                                    text = "¥${"%.2f".format(totalProfit)}",
+                                    text = "¥${safeFormatDouble(totalProfit)}",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFFF8F00)
@@ -869,7 +869,7 @@ fun TransactionItem(
             Spacer(modifier = Modifier.width(8.dp))
 
             Text(
-                text = "${amountPrefix}${"%.2f".format(displayAmount)}",
+                text = "${amountPrefix}${safeFormatDouble(displayAmount)}",
                 style = MaterialTheme.typography.titleMedium,
                 color = amountColor,
                 fontWeight = FontWeight.Bold

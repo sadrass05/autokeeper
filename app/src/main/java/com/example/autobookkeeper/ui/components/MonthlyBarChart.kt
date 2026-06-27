@@ -28,6 +28,7 @@ import com.github.mikephil.charting.utils.MPPointF
 import com.github.mikephil.charting.utils.Transformer
 import com.github.mikephil.charting.utils.ViewPortHandler
 import com.example.autobookkeeper.R
+import com.example.autobookkeeper.ui.screen.safeFormatDouble
 
 private class RoundedBarChartRenderer(
     chart: BarChart,
@@ -147,14 +148,14 @@ internal class MonthlyDetailMarkerView(
         displayLines = if (isStacked) {
             listOf(
                 "${year}年${month}月",
-                "总支出：¥${"%.2f".format(item.totalAmount)}",
-                "日常支出：¥${"%.2f".format(item.nonFinanceAmount)}",
-                "理财支出：¥${"%.2f".format(item.financeAmount)}"
+                "总支出：¥${safeFormatDouble(item.totalAmount)}",
+                "日常支出：¥${safeFormatDouble(item.nonFinanceAmount)}",
+                "理财支出：¥${safeFormatDouble(item.financeAmount)}"
             )
         } else {
             listOf(
                 "${year}年${month}月",
-                "总支出：¥${"%.2f".format(item.totalAmount)}"
+                "总支出：¥${safeFormatDouble(item.totalAmount)}"
             )
         }
 
@@ -277,7 +278,7 @@ fun MonthlyBarChart(
                 valueFormatter = object : ValueFormatter() {
                     override fun getBarLabel(entry: BarEntry?): String {
                         val amount = entry?.y ?: 0f
-                        return "¥${"%.2f".format(amount)}"
+                        return "¥${safeFormatDouble(amount.toDouble())}"
                     }
                 }
             }

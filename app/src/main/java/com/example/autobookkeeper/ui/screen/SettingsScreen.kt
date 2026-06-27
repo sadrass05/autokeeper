@@ -99,7 +99,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -156,7 +155,7 @@ fun SettingsScreen(
     var serverIp by remember { mutableStateOf(currentSyncPrefs?.serverIp ?: "") }
     var serverPortText by remember { mutableStateOf((currentSyncPrefs?.serverPort ?: 5000).toString()) }
     val lastSyncFormatted = if ((currentSyncPrefs?.lastSyncTime ?: 0L) > 0L) {
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", LocalLocale.current.platformLocale)
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             .format(Date(currentSyncPrefs?.lastSyncTime ?: 0L))
     } else "从未同步"
     var isDarkTheme by remember { mutableStateOf(false) }
@@ -863,7 +862,7 @@ fun SettingsScreen(
                 val lastBackup = backupList.firstOrNull()
                 Text(
                     text = if (lastBackup != null)
-                        "上次备份: ${SimpleDateFormat("yyyy-MM-dd HH:mm", LocalLocale.current.platformLocale).format(lastBackup.date)}"
+                        "上次备份: ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(lastBackup.date)}"
                     else "暂无备份",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
